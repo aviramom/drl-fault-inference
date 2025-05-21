@@ -1,0 +1,21 @@
+{
+  "domain_name": "Taxi_v3",
+  "ml_model_name": "PPO",
+  "possible_fault_mode_names": [
+	"[0,0,2,3,4,5]",
+	"[0,2,2,3,4,5]",
+	"[0,1,2,3,2,5]",
+	"[0,1,2,3,0,5]",
+	"[0,1,2,3,4,0]",
+	"[0,2,1,3,4,5]",
+	"[0,3,2,1,4,5]",
+	"[0,4,2,3,1,5]",
+	"[0,5,2,3,4,1]",
+	"[1,0,2,3,4,5]"
+  ],
+  "fault_probabilities": [0.2, 0.4, 0.6, 0.8, 1.0],
+  "instance_seeds": [1],
+  "percent_visible_states": [100],
+  "num_candidate_fault_modes": [10],
+  "diagnoser_names": ["SIFU5"]
+}

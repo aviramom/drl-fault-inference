@@ -1,0 +1,20 @@
+{
+  "domain_name": "MountainCar_v0",
+  "ml_model_name": "DQN",
+  "fault_mode_name": "[1,1,2]",
+  "fault_probability": 1.0,
+  "instance_seeds": [1],
+  "percent_visible_states": [100],
+  "all_fault_names":[
+	"[1,1,2]",
+	"[0,1,1]",
+	"[0,2,1]",
+	"[1,0,2]",
+	"[1,2,0]",
+	"[2,0,1]",
+	"[2,1,0]",
+	"[0,0,0]",
+	"[1,1,1]",
+	"[2,2,2]"
+  ]
+}

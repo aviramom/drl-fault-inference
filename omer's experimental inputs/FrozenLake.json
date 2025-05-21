@@ -1,0 +1,8 @@
+{
+  "domain_name": "FrozenLake_v1",
+  "ml_model_name": "PPO",
+  "fault_mode_name": "[0,0,2,3]",
+  "fault_probability": 1.0,
+  "instance_seeds": [1],
+  "percent_visible_states": [100]
+}

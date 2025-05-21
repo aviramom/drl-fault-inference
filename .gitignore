@@ -1,0 +1,31 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Model files
+*.zip
+*.pkl
+*.h5
+
+# Jupyter/IPython
+.ipynb_checkpoints/
+
+# Logs and debug
+*.log
+*.out
+*.tmp
+
+# VS Code / IDE
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
+ 

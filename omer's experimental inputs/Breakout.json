@@ -1,0 +1,8 @@
+{
+  "domain_name": "Breakout_v4",
+  "ml_model_name": "A2C",
+  "fault_mode_name": "[3,0,2,1]",
+  "fault_probability": 1.0,
+  "instance_seeds": [1],
+  "percent_visible_states": [100]
+}

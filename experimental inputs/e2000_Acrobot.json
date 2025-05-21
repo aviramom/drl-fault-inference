@@ -1,0 +1,21 @@
+{
+  "domain_name": "Acrobot_v1",
+  "ml_model_name": "PPO",
+  "possible_fault_mode_names": [
+	"[1,1,2]",
+	"[0,1,1]",
+	"[0,2,1]",
+	"[1,0,2]",
+	"[1,2,0]",
+	"[2,0,1]",
+	"[2,1,0]",
+	"[0,0,0]",
+	"[1,1,1]",
+	"[2,2,2]"
+  ],
+  "fault_probabilities": [0.2, 0.4, 0.6, 0.8, 1.0],
+  "instance_seeds": [1],
+  "percent_visible_states": [100],
+  "num_candidate_fault_modes": [10],
+  "diagnoser_names": ["SIFU5"]
+}
