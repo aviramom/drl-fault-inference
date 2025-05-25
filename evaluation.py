@@ -10,7 +10,7 @@ from fault_mode_generators import FaultModeGeneratorDiscrete
 import with_faults_executor as wfe
 from pipeline import separate_trajectory
 from state_refiners import refiners
-from rollout import infer_fault_from_segment, load_policy
+#from utils import infer_fault_from_segment, load_policy
 
 def evaluate_model_on_faults(model, domain_name, fault_mode_name, fault_mode_generator,
                              ml_model_name, num_samples=100, render_mode=None):
@@ -129,60 +129,7 @@ def evaluate_model_on_testset(model, test_data):
 
 
 
-def evaluate_fault_inference_accuracy(domain_name, model_name, all_fault_modes,models_by_fault, num_tests=20):
-    correct = 0
-    confusion = defaultdict(int)
 
-    for fault_mode in all_fault_modes:
-        print(f"\n⚡ Testing with TRUE fault: {fault_mode}")
-
-        for test_id in range(num_tests):
-            # Generate a single trajectory under this fault
-            trajectory, exec_len, success = wfe.execute_with_faults(
-                domain_name=domain_name,
-                debug_print=False,
-                execution_fault_mode_name=fault_mode,  # ground truth!
-                instance_seed=np.random.randint(1_000_000),
-                fault_probability=1.0,  # always fault
-                render_mode=None,
-                ml_model_name=model_name,
-                fault_mode_generator=FaultModeGeneratorDiscrete(),
-                max_exec_len=200
-            )
-            # Load trained policy ONCE before running tests
-            policy, _ = load_policy(
-                domain_name=domain_name,
-                ml_model_name=model_name,
-                render_mode=None
-            )
-
-            # Extract segment: state6 → state12
-            obs_seq, action_seq = separate_trajectory(trajectory)
-            if len(obs_seq) < 13:  # too short
-                continue
-
-            start_state = obs_seq[6]
-            true_final_state = obs_seq[12]
-
-            # Run inference
-            predicted_fault, mse, all_mses = infer_fault_from_segment(
-                models_by_fault=models_by_fault,
-                policy=policy,
-                domain_name=domain_name,
-                start_state=start_state,
-                n_steps=6,
-                true_final_state=true_final_state,
-                refiners=refiners
-            )
-
-            confusion[(fault_mode, predicted_fault)] += 1
-            if predicted_fault == fault_mode:
-                correct += 1
-
-    total = sum(confusion.values())
-    accuracy = correct / total if total > 0 else 0.0
-    print(f"\n✅ Fault inference accuracy: {accuracy * 100:.2f}% over {total} samples.")
-    return confusion
 
 
 

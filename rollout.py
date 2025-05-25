@@ -1,8 +1,23 @@
 from sklearn.metrics import mean_squared_error
 import numpy as np
+import numpy as np
+
+import no_faults_executor as nfe
+import with_faults_executor as wfe
+from FaultyTransitionModel import FaultyTransitionModel
+from evaluation import evaluate_model_on_faults
+from evaluation import evaluate_model_on_testset
+from fault_mode_generators import FaultModeGeneratorDiscrete
+from pipeline import read_json_data
+from pipeline import separate_trajectory
+from Faulty_Data_Extractor import get_faulty_data, get_augmented_faulty_data, get_all_transitions_under_fault
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split
 
 from sklearn.metrics import mean_squared_error
 import numpy as np
+from sklearn.model_selection import train_test_split
+
 
 def rollout_with_policy_and_score(model, policy, domain_name, start_state, n_steps, true_final_state, refiners):
     """
@@ -91,35 +106,82 @@ def infer_fault_from_segment(models_by_fault, policy, domain_name, start_state, 
 
 
 
-import os
-from stable_baselines3 import PPO, DQN, A2C  # extend this if needed
-from rl_models import models  # your global registry: {'PPO': PPO, ...}
-
-def load_policy(domain_name, ml_model_name, render_mode=None):
+def train_models_for_fault_modes(
+    domain_name,
+    model_name,
+    all_fault_modes,
+    fault_mode_generator,
+    num_trajectories,
+    debug_mode,
+    fault_probability,
+    render_mode,
+    max_exec_len,
+    get_transitions_func,
+    model_type='linear'
+):
     """
-    Loads a trained RL policy from disk for a given Gym domain.
+    Trains a model per fault mode and returns a dictionary of trained models.
 
     Args:
-        domain_name (str): e.g., "CartPole-v1"
-        ml_model_name (str): e.g., "PPO", "DQN", etc.
-        render_mode (str or None): Rendering mode (optional)
+        domain_name (str): Name of the Gym domain (e.g., 'CartPole_v1').
+        model_name (str): Name of the SB3 model to use.
+        all_fault_modes (list): List of fault mode names.
+        fault_mode_generator (FaultModeGenerator): Fault mode generator instance.
+        num_trajectories (int): Number of trajectories to collect for training.
+        debug_mode (bool): Whether to enable debugging prints.
+        fault_probability (float): Fault injection probability (e.g., 1.0 for always fault).
+        render_mode (str): Render mode for the env (e.g., 'rgb_array').
+        max_exec_len (int): Maximum steps per trajectory.
+        get_transitions_func (callable): Function to get transitions under fault mode.
+        model_type (str): Model type to use for training ('linear', 'mlp').
 
     Returns:
-        model: loaded policy (e.g., PPO object)
-        env: Gym environment with wrapper
+        dict: A dictionary mapping each fault mode to its trained FaultyTransitionModel.
     """
-    import gym
-    from wrappers import wrappers
+    models_by_fault = {}
 
-    env = wrappers[domain_name](gym.make(domain_name.replace('_', '-'), render_mode=render_mode))
+    for fault_mode in all_fault_modes:
+        print(f"\n==== Training model for fault mode: {fault_mode} ====")
 
-    models_dir = f"environments/{domain_name}/models/{ml_model_name}"
-    model_path = os.path.join(models_dir, f"{domain_name}__{ml_model_name}.zip")
+        # Get transitions under this fault mode
+        trajectory_data = get_transitions_func(
+            num_trajectories,
+            domain_name,
+            debug_mode,
+            fault_mode,
+            fault_probability,
+            render_mode,
+            model_name,
+            fault_mode_generator,
+            max_exec_len
+        )
 
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Model not found at: {model_path}")
+        print(f"Total training samples (all transitions under fault): {len(trajectory_data)}")
 
-    model_class = models[ml_model_name]
-    model = model_class.load(model_path, env=env)
+        # Train/test split
+        train_data, test_data = train_test_split(trajectory_data, test_size=0.2, random_state=42)
+        print(f"Training on {len(train_data)} samples, testing on {len(test_data)} samples")
 
-    return model, env
+        # Train model
+        model = FaultyTransitionModel(fault_mode=fault_mode, data=train_data, model_type=model_type)
+        models_by_fault[fault_mode] = model
+
+        # Evaluate model
+        evaluate_model_on_testset(model, test_data)
+        # evaluate_model_on_faults(
+        #     model=model,
+        #     domain_name=domain_name,
+        #     fault_mode_name=fault_mode,
+        #     fault_mode_generator=fault_mode_generator,
+        #     ml_model_name=model_name,
+        #     num_samples=2000,
+        #     render_mode=render_mode
+        # )
+
+    print("\n✅ All models trained and evaluated.")
+    return models_by_fault
+
+
+
+
+

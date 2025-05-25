@@ -1,5 +1,5 @@
 import random
-
+from utils import *
 import numpy as np
 import gym
 from gymnasium.utils.step_api_compatibility import DoneStepType
@@ -79,14 +79,15 @@ def execute_gym_with_faults(domain_name,
             - success (bool): Whether the episode completed "successfully".
     """
     # initialize environment
-    env = wrappers[domain_name](gym.make(domain_name.replace('_', '-'), render_mode=render_mode))
+    model,env =load_policy(domain_name, ml_model_name,render_mode)
+    #env = wrappers[domain_name](gym.make(domain_name.replace('_', '-'), render_mode=render_mode))
     initial_obs, _ = env.reset(seed=instance_seed)
     # print(f'initial observation: {initial_obs.tolist()}')
 
     # load trained model
-    models_dir = f"environments/{domain_name}/models/{ml_model_name}"
-    model_path = f"{models_dir}/{domain_name}__{ml_model_name}.zip"
-    model = models[ml_model_name].load(model_path, env=env)
+    #models_dir = f"environments/{domain_name}/models/{ml_model_name}"
+    #model_path = f"{models_dir}/{domain_name}__{ml_model_name}.zip"
+    #model = models[ml_model_name].load(model_path, env=env)
 
     # initialize execution fault mode
     execution_fault_mode = fault_mode_generator.generate_fault_mode(execution_fault_mode_name)
@@ -160,14 +161,15 @@ def execute_atari_with_faults(domain_name,
     print(f'executing {domain_name} with fault mode: {execution_fault_mode_name}\n========================================================================================')
 
     # initialize environment
-    env = make_atari_env('Breakout-v4', n_envs=1, seed=instance_seed)
+    #env = make_atari_env('Breakout-v4', n_envs=1, seed=instance_seed)
+    model, env =load_policy(domain_name, ml_model_name,render_mode)
     initial_obs = env.reset()
     # print(f'initial observation: {initial_obs.tolist()}')
 
     # load trained model
-    models_dir = f"environments/{domain_name}/models/{ml_model_name}"
-    model_path = f"{models_dir}/{domain_name}__{ml_model_name}.zip"
-    model = models[ml_model_name].load(model_path, env=env)
+    # models_dir = f"environments/{domain_name}/models/{ml_model_name}"
+    # model_path = f"{models_dir}/{domain_name}__{ml_model_name}.zip"
+    # model = models[ml_model_name].load(model_path, env=env)
 
     # initialize execution fault mode
     execution_fault_mode = fault_mode_generator.generate_fault_mode(execution_fault_mode_name)
@@ -209,57 +211,57 @@ def execute_atari_with_faults(domain_name,
     return trajectory, exec_len,success
 
 
-def collect_gym_with_faults_data(num_of_trajectories,
-                                  domain_name,
-                                  debug_print,
-                                  fault_mode_names,
-                                  fault_probability,
-                                  render_mode,
-                                  ml_model_name,
-                                  fault_mode_generator,
-                                  max_exec_len):
-    """
-    Collects multiple Gym trajectories with randomly selected fault modes applied per episode.
-
-    A different fault mode from `fault_mode_names` is selected uniformly at random for each
-    trajectory execution.
-
-    Parameters:
-        num_of_trajectories (int): Number of trajectories to collect.
-        domain_name (str): Gym environment name (e.g., "CartPole_v1").
-        debug_print (bool): Enable or disable detailed logging of steps.
-        fault_mode_names (list[str]): List of fault mode names to sample from.
-        fault_probability (float): Chance of injecting a fault at any given step.
-        render_mode (str or None): Rendering mode passed to the environment.
-        ml_model_name (str): Name of the RL model used.
-        fault_mode_generator (FaultModeGenerator): Responsible for generating fault behavior.
-        max_exec_len (int): Maximum number of timesteps per trajectory.
-
-    Returns:
-        list of list: A list of trajectories, each consisting of alternating observations and actions.
-    """
-
-
-    # initialize execution fault mode
-    #     trajectories = []
-    #     for i in range(num_of_tralectorirs):
-    #
-    #     # initializing empty trajectory
-    #         instance_seed = random.randint(0, 1000000)
-    #         trajectory, exec_len, success = execute_gym_no_faults(domain_name, debug_print, instance_seed, render_mode, ml_model_name, max_exec_len)
-    #         trajectories.append(trajectory)
-    #     return trajectories
-
-    # initializing empty trajectory
-    trajectories = []
-    for i in range(num_of_trajectories):
-    # initializing empty trajectory
-            instance_seed = random.randint(0, 1000000)
-            i = random.randint(0, len(fault_mode_names)-1)
-            fault_name = fault_mode_names[i]
-            trajectory, exec_len, success = execute_gym_with_faults(domain_name, debug_print,fault_name, instance_seed,fault_probability, render_mode, ml_model_name, fault_mode_generator,max_exec_len)
-            trajectories.append(trajectory)
-    return trajectories
+# def collect_gym_with_faults_data(num_of_trajectories,
+#                                   domain_name,
+#                                   debug_print,
+#                                   fault_mode_names,
+#                                   fault_probability,
+#                                   render_mode,
+#                                   ml_model_name,
+#                                   fault_mode_generator,
+#                                   max_exec_len):
+#     """
+#     Collects multiple Gym trajectories with randomly selected fault modes applied per episode.
+#
+#     A different fault mode from `fault_mode_names` is selected uniformly at random for each
+#     trajectory execution.
+#
+#     Parameters:
+#         num_of_trajectories (int): Number of trajectories to collect.
+#         domain_name (str): Gym environment name (e.g., "CartPole_v1").
+#         debug_print (bool): Enable or disable detailed logging of steps.
+#         fault_mode_names (list[str]): List of fault mode names to sample from.
+#         fault_probability (float): Chance of injecting a fault at any given step.
+#         render_mode (str or None): Rendering mode passed to the environment.
+#         ml_model_name (str): Name of the RL model used.
+#         fault_mode_generator (FaultModeGenerator): Responsible for generating fault behavior.
+#         max_exec_len (int): Maximum number of timesteps per trajectory.
+#
+#     Returns:
+#         list of list: A list of trajectories, each consisting of alternating observations and actions.
+#     """
+#
+#
+#     # initialize execution fault mode
+#     #     trajectories = []
+#     #     for i in range(num_of_tralectorirs):
+#     #
+#     #     # initializing empty trajectory
+#     #         instance_seed = random.randint(0, 1000000)
+#     #         trajectory, exec_len, success = execute_gym_no_faults(domain_name, debug_print, instance_seed, render_mode, ml_model_name, max_exec_len)
+#     #         trajectories.append(trajectory)
+#     #     return trajectories
+#
+#     # initializing empty trajectory
+#     trajectories = []
+#     for i in range(num_of_trajectories):
+#     # initializing empty trajectory
+#             instance_seed = random.randint(0, 1000000)
+#             i = random.randint(0, len(fault_mode_names)-1)
+#             fault_name = fault_mode_names[i]
+#             trajectory, exec_len, success = execute_gym_with_faults(domain_name, debug_print,fault_name, instance_seed,fault_probability, render_mode, ml_model_name, fault_mode_generator,max_exec_len)
+#             trajectories.append(trajectory)
+#     return trajectories
 
 
 

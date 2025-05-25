@@ -1,4 +1,5 @@
 from sklearn.linear_model import LinearRegression
+from sklearn.neural_network import MLPRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 import numpy as np
@@ -29,7 +30,12 @@ class FaultyTransitionModel:
 
     def _train_model(self):
         X_train, X_test, Y_train, Y_test = train_test_split(self.X, self.Y, test_size=0.2, random_state=42)
-        self.model = LinearRegression()  # you could switch based on self.model_type
+
+        if self.model_type == 'mlp':
+            self.model = MLPRegressor(hidden_layer_sizes=(64, 64), activation='relu', max_iter=1000, random_state=42)
+        else:
+            self.model = LinearRegression()
+
         self.model.fit(X_train, Y_train)
         Y_pred = self.model.predict(X_test)
         self.mse = mean_squared_error(Y_test, Y_pred)
@@ -42,4 +48,4 @@ class FaultyTransitionModel:
         return self.mse
 
     def __repr__(self):
-        return f"FaultyTransitionModel(fault_mode={self.fault_mode}, MSE={self.mse:.4f})"
+        return f"FaultyTransitionModel(fault_mode={self.fault_mode}, model_type={self.model_type}, MSE={self.mse:.4f})"

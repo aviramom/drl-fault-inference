@@ -79,7 +79,7 @@ def get_faulty_data(num_of_trajectories, domain_name, debug_mode, fault_name,
     Returns:
         list of tuples: A flattened list of faulty transitions (state, action, next_state) across all trajectories.
     """
-    trajectories = collect_gym_trajectories_with_faults(
+    trajectories = collect_trajectories_with_faults(
         num_of_trajectories, domain_name, debug_mode, fault_name,
         fault_probability, render_mode, ml_model_name,
         fault_mode_generator, max_exec_len
@@ -136,7 +136,7 @@ def get_augmented_faulty_data(domain_name, fault_mode_name, model_name, fault_mo
 
 
 
-def collect_gym_trajectories_with_faults(num_of_trajectories,
+def collect_trajectories_with_faults(num_of_trajectories,
                                          domain_name,
                                          debug_print,
                                          fault_mode_name,
@@ -229,7 +229,7 @@ def get_all_transitions_under_fault(num_of_trajectories, domain_name, debug_mode
     Returns:
         list of (state, action, next_state) transitions.
     """
-    trajectories = collect_gym_trajectories_with_faults(
+    trajectories = collect_trajectories_with_faults(
         num_of_trajectories, domain_name, debug_mode, fault_name,
         fault_probability, render_mode, ml_model_name,
         fault_mode_generator, max_exec_len
