@@ -21,7 +21,7 @@ if __name__ == '__main__':
     render_mode = 'rgb_array'
     max_exec_len = 200
     num_of_trajectories = 60
-    domain = domains_files[0]  # e.g., Acrobot
+    domain = domains_files[2]  # e.g., Acrobot
     fault_probability = 100  # always inject fault
     fault_mode_generator = FaultModeGeneratorDiscrete()
 
@@ -41,8 +41,9 @@ if __name__ == '__main__':
                                          fault_probability,
                                          render_mode,
                                          max_exec_len,
-                                         get_all_transitions_under_fault,
                                          model_type)
+    for model in models:
+        model.plot_regression_for_dim(0)
 
 
 

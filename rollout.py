@@ -10,9 +10,11 @@ from evaluation import evaluate_model_on_testset
 from fault_mode_generators import FaultModeGeneratorDiscrete
 from pipeline import read_json_data
 from pipeline import separate_trajectory
-from Faulty_Data_Extractor import get_faulty_data, get_augmented_faulty_data, get_all_transitions_under_fault
+from Faulty_Data_Extractor import get_faulty_data, get_augmented_faulty_data, get_all_transitions_under_fault, \
+    collect_trajectories_with_faults, get_all_transitions_from_trajectory
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import train_test_split
+from utils import *
 
 from sklearn.metrics import mean_squared_error
 import numpy as np
@@ -106,6 +108,81 @@ def infer_fault_from_segment(models_by_fault, policy, domain_name, start_state, 
 
 
 
+# def train_models_for_fault_modes1(
+#     domain_name,
+#     model_name,
+#     all_fault_modes,
+#     fault_mode_generator,
+#     num_trajectories,
+#     debug_mode,
+#     fault_probability,
+#     render_mode,
+#     max_exec_len,
+#     get_transitions_func,
+#     model_type='linear'
+# ):
+#     """
+#     Trains a model per fault mode and returns a dictionary of trained models.
+#
+#     Args:
+#         domain_name (str): Name of the Gym domain (e.g., 'CartPole_v1').
+#         model_name (str): Name of the SB3 model to use.
+#         all_fault_modes (list): List of fault mode names.
+#         fault_mode_generator (FaultModeGenerator): Fault mode generator instance.
+#         num_trajectories (int): Number of trajectories to collect for training.
+#         debug_mode (bool): Whether to enable debugging prints.
+#         fault_probability (float): Fault injection probability (e.g., 1.0 for always fault).
+#         render_mode (str): Render mode for the env (e.g., 'rgb_array').
+#         max_exec_len (int): Maximum steps per trajectory.
+#         get_transitions_func (callable): Function to get transitions under fault mode.
+#         model_type (str): Model type to use for training ('linear', 'mlp').
+#
+#     Returns:
+#         dict: A dictionary mapping each fault mode to its trained FaultyTransitionModel.
+#     """
+#     models_by_fault = {}
+#
+#     for fault_mode in all_fault_modes:
+#         print(f"\n==== Training model for fault mode: {fault_mode} ====")
+#
+#         # Get transitions under this fault mode
+#         trajectory_data = get_transitions_func(
+#             num_trajectories,
+#             domain_name,
+#             debug_mode,
+#             fault_mode,
+#             fault_probability,
+#             render_mode,
+#             model_name,
+#             fault_mode_generator,
+#             max_exec_len
+#         )
+#
+#         print(f"Total training samples (all transitions under fault): {len(trajectory_data)}")
+#
+#         # Train/test split
+#         train_data, test_data = train_test_split(trajectory_data, test_size=0.2, random_state=42)
+#         print(f"Training on {len(train_data)} samples, testing on {len(test_data)} samples")
+#
+#         # Train model
+#         model = FaultyTransitionModel(fault_mode=fault_mode, data=train_data, model_type=model_type)
+#         models_by_fault[fault_mode] = model
+#
+#         # Evaluate model
+#         evaluate_model_on_testset(model, test_data)
+#         # evaluate_model_on_faults(
+#         #     model=model,
+#         #     domain_name=domain_name,
+#         #     fault_mode_name=fault_mode,
+#         #     fault_mode_generator=fault_mode_generator,
+#         #     ml_model_name=model_name,
+#         #     num_samples=2000,
+#         #     render_mode=render_mode
+#         # )
+#
+#     print("\n✅ All models trained and evaluated.")
+#     return models_by_fault
+
 def train_models_for_fault_modes(
     domain_name,
     model_name,
@@ -116,11 +193,12 @@ def train_models_for_fault_modes(
     fault_probability,
     render_mode,
     max_exec_len,
-    get_transitions_func,
     model_type='linear'
 ):
     """
     Trains a model per fault mode and returns a dictionary of trained models.
+
+    Ensures trajectories are split before extracting transitions to prevent test/train data leakage.
 
     Args:
         domain_name (str): Name of the Gym domain (e.g., 'CartPole_v1').
@@ -143,24 +221,29 @@ def train_models_for_fault_modes(
     for fault_mode in all_fault_modes:
         print(f"\n==== Training model for fault mode: {fault_mode} ====")
 
-        # Get transitions under this fault mode
-        trajectory_data = get_transitions_func(
-            num_trajectories,
-            domain_name,
-            debug_mode,
-            fault_mode,
-            fault_probability,
-            render_mode,
-            model_name,
-            fault_mode_generator,
-            max_exec_len
+        # Collect all trajectories for this fault mode
+        all_trajectories = collect_trajectories_with_faults(
+            num_trajectories, domain_name, debug_mode, fault_mode,
+            fault_probability, render_mode, model_name,
+            fault_mode_generator, max_exec_len
         )
 
-        print(f"Total training samples (all transitions under fault): {len(trajectory_data)}")
+        # Split trajectories BEFORE extracting transitions
+        train_trajectories, test_trajectories = train_test_split(all_trajectories, test_size=0.2, random_state=42)
+        print(f"Training on {len(train_trajectories)} trajectories, testing on {len(test_trajectories)} trajectories")
 
-        # Train/test split
-        train_data, test_data = train_test_split(trajectory_data, test_size=0.2, random_state=42)
-        print(f"Training on {len(train_data)} samples, testing on {len(test_data)} samples")
+        # Extract transitions
+        train_data = []
+        for t in train_trajectories:
+            train_data.extend(get_all_transitions_from_trajectory(domain_name, render_mode, t))
+
+        test_data = []
+        for t in test_trajectories:
+            test_data.extend(get_all_transitions_from_trajectory(domain_name, render_mode, t))
+
+        train_data = filter_only_faulted_tuples(train_data, fault_mode)
+        test_data = filter_only_faulted_tuples(test_data, fault_mode)
+        print(f"Total training samples: {len(train_data)}, testing samples: {len(test_data)}")
 
         # Train model
         model = FaultyTransitionModel(fault_mode=fault_mode, data=train_data, model_type=model_type)
@@ -168,15 +251,6 @@ def train_models_for_fault_modes(
 
         # Evaluate model
         evaluate_model_on_testset(model, test_data)
-        # evaluate_model_on_faults(
-        #     model=model,
-        #     domain_name=domain_name,
-        #     fault_mode_name=fault_mode,
-        #     fault_mode_generator=fault_mode_generator,
-        #     ml_model_name=model_name,
-        #     num_samples=2000,
-        #     render_mode=render_mode
-        # )
 
     print("\n✅ All models trained and evaluated.")
     return models_by_fault

@@ -1,3 +1,4 @@
+from matplotlib import pyplot as plt
 from sklearn.linear_model import LinearRegression
 from sklearn.neural_network import MLPRegressor
 from sklearn.metrics import mean_squared_error
@@ -46,6 +47,38 @@ class FaultyTransitionModel:
 
     def score(self):
         return self.mse
+
+    def plot_regression_for_dim(self, dim=0):
+        """
+        Plots predicted vs actual values for a specific output dimension,
+        and prints the regression equation if model is linear.
+        """
+        if self.model_type != 'linear':
+            print("⚠️ Plotting is only supported for linear models.")
+            return
+
+        Y_pred = self.model.predict(self.X)
+        actual = self.Y[:, dim]
+        predicted = Y_pred[:, dim]
+
+        # Plot
+        plt.figure(figsize=(6, 4))
+        plt.scatter(actual, predicted, alpha=0.6)
+        plt.plot([actual.min(), actual.max()], [actual.min(), actual.max()], 'r--', label='Ideal')
+        plt.xlabel(f'Actual Dimension {dim}')
+        plt.ylabel(f'Predicted Dimension {dim}')
+        plt.title(f'Linear Regression (Dim {dim})\nFault Mode: {self.fault_mode}')
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
+
+        # Print regression equation
+        coef = self.model.coef_[dim]
+        intercept = self.model.intercept_[dim]
+        terms = [f"{coef[i]:+.3f}*x{i}" for i in range(len(coef))]
+        equation = " + ".join(terms) + f" {intercept:+.3f}"
+        print(f"🧮 Regression Equation for output dim {dim}:\n  y = {equation}")
 
     def __repr__(self):
         return f"FaultyTransitionModel(fault_mode={self.fault_mode}, model_type={self.model_type}, MSE={self.mse:.4f})"

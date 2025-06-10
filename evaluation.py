@@ -118,7 +118,7 @@ def evaluate_model_on_testset(model, test_data):
     var = np.var(actuals)
     print(f"[Test Set] MSE: {mse:.6f}, Variance: {var:.6f}, MSE/Var = {mse / var:.2%}")
 
-    if actuals.shape[1] > 1:
+    if np.ndim(actuals) == 2 and actuals.shape[1] > 1:
         print("Per-dimension MSE / Var (Test Set):")
         for i in range(actuals.shape[1]):
             dim_mse = mean_squared_error(actuals[:, i], predictions[:, i])

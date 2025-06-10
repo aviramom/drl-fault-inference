@@ -23,3 +23,19 @@ def separate_trajectory(trajectory_execution):
     if len(registered_actions) == len(observations):
         registered_actions = registered_actions[:-1]
     return registered_actions, observations
+
+
+
+def filter_only_faulted_tuples(tuples, fault_mode_str):
+    """
+    Filters (state, action, next_state) tuples where the fault actually changed the action.
+
+    Args:
+        tuples: list of (state, action, next_state)
+        fault_mode_str: string representation of the fault mapping, e.g., "[0,0,2,3,4,5]"
+
+    Returns:
+        list of only faulty tuples (where action != faulty_action)
+    """
+    fault_mapping = eval(fault_mode_str)
+    return [t for t in tuples if fault_mapping[t[1]] != t[1]]
