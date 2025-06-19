@@ -80,5 +80,78 @@ class FaultyTransitionModel:
         equation = " + ".join(terms) + f" {intercept:+.3f}"
         print(f"🧮 Regression Equation for output dim {dim}:\n  y = {equation}")
 
+    def plot_regression_line_for_feature(self, feature_idx=0, output_dim=0):
+        """
+        Plots the regression line for a selected feature and output dimension (only for linear models).
+        X-axis: input feature at index `feature_idx`
+        Y-axis: predicted output at dimension `output_dim`
+        """
+        if self.model_type != 'linear':
+            print("⚠️ Only supported for linear models.")
+            return
+
+        x_vals = self.X[:, feature_idx]
+        y_vals = self.Y[:, output_dim]
+
+        coef = self.model.coef_[output_dim][feature_idx]
+        intercept = self.model.intercept_[output_dim]
+
+        # Compute regression line
+        x_line = np.linspace(x_vals.min(), x_vals.max(), 100)
+        y_line = coef * x_line + intercept
+
+        # Plot
+        plt.figure(figsize=(6, 4))
+        plt.scatter(x_vals, y_vals, alpha=0.6, label='Data points')
+        plt.plot(x_line, y_line, 'r-', label=f'Linear fit: y = {coef:.3f} * x + {intercept:.3f}')
+        plt.xlabel(f'Feature x[{feature_idx}]')
+        plt.ylabel(f'Output dim {output_dim}')
+        plt.title(f'Regression Line (Output {output_dim} vs Feature {feature_idx})')
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
+
+    def plot_all_feature_regressions(self, output_dim=0, max_plots=None):
+        """
+        Plots regression lines of all input features (X[:, i]) vs. output Y[:, output_dim].
+        Only works for linear models.
+
+        Args:
+            output_dim (int): which output dimension to visualize (e.g., 0 for s'[0])
+            max_plots (int or None): optionally limit number of features plotted
+        """
+        if self.model_type != 'linear':
+            print("⚠️ Only supported for linear models.")
+            return
+
+        num_features = self.X.shape[1]
+        if max_plots is not None:
+            num_features = min(num_features, max_plots)
+
+        cols = 3
+        rows = (num_features + cols - 1) // cols
+        plt.figure(figsize=(5 * cols, 4 * rows))
+
+        for i in range(num_features):
+            x_vals = self.X[:, i]
+            y_vals = self.Y[:, output_dim]
+            coef = self.model.coef_[output_dim][i]
+            intercept = self.model.intercept_[output_dim]
+            x_line = np.linspace(x_vals.min(), x_vals.max(), 100)
+            y_line = coef * x_line + intercept
+
+            plt.subplot(rows, cols, i + 1)
+            plt.scatter(x_vals, y_vals, alpha=0.6, label='Data')
+            plt.plot(x_line, y_line, 'r-', label=f'y = {coef:.2f}x + {intercept:.2f}')
+            plt.xlabel(f'x[{i}]')
+            plt.ylabel(f'y[{output_dim}]')
+            plt.title(f'Feature {i} vs Output {output_dim}')
+            plt.legend()
+            plt.grid(True)
+
+        plt.tight_layout()
+        plt.show()
+
     def __repr__(self):
         return f"FaultyTransitionModel(fault_mode={self.fault_mode}, model_type={self.model_type}, MSE={self.mse:.4f})"
