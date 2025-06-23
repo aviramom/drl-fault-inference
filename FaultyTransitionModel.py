@@ -19,11 +19,24 @@ class FaultyTransitionModel:
         self._prepare_data(data)
         self._train_model()
 
-    def _prepare_data(self, data):
+    def _prepare_data1(self, data):
         X, Y = [], []
         for s, a, s_prime in data:
             x = np.append(s, a)
             y = s_prime  # or: y = s_prime - s for delta prediction
+            X.append(x)
+            Y.append(y)
+        self.X = np.array(X)
+        self.Y = np.array(Y)
+
+    def _prepare_data(self, data):
+        X, Y = [], []
+        for s, a, s_prime in data:
+            # Convert scalar state to 1D array if needed
+            s_array = np.atleast_1d(s)
+            s_prime_array = np.atleast_1d(s_prime)
+            x = np.append(s_array, a)
+            y = s_prime_array
             X.append(x)
             Y.append(y)
         self.X = np.array(X)
@@ -106,7 +119,7 @@ class FaultyTransitionModel:
         plt.plot(x_line, y_line, 'r-', label=f'Linear fit: y = {coef:.3f} * x + {intercept:.3f}')
         plt.xlabel(f'Feature x[{feature_idx}]')
         plt.ylabel(f'Output dim {output_dim}')
-        plt.title(f'Regression Line (Output {output_dim} vs Feature {feature_idx})')
+        plt.title(f'Fault {self.fault_mode} | Regression Line (Output {output_dim} vs Feature {feature_idx})')
         plt.legend()
         plt.grid(True)
         plt.tight_layout()
@@ -147,11 +160,29 @@ class FaultyTransitionModel:
             plt.xlabel(f'x[{i}]')
             plt.ylabel(f'y[{output_dim}]')
             plt.title(f'Feature {i} vs Output {output_dim}')
+            plt.title(f'Fault {self.fault_mode} | Regression Line (Output {output_dim} vs Feature x[{i}])')
             plt.legend()
             plt.grid(True)
 
         plt.tight_layout()
         plt.show()
+
+    def print_regression_equation(self, output_dim):
+        """
+        Prints the full regression equation for a selected output dimension.
+        """
+        if self.model_type != 'linear':
+            print("⚠️ Equation printing only supported for linear models.")
+            return
+
+        coef = self.model.coef_[output_dim]
+        intercept = self.model.intercept_[output_dim]
+        terms = [f"{coef[i]:+.3f}*x{i}" for i in range(len(coef))]
+        equation = " + ".join(terms) + f" {intercept:+.3f}"
+        print(f"📘 Fault Mode: {self.fault_mode}, Output Dim {output_dim}")
+        print(f"y = {equation}")
+
+
 
     def __repr__(self):
         return f"FaultyTransitionModel(fault_mode={self.fault_mode}, model_type={self.model_type}, MSE={self.mse:.4f})"

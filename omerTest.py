@@ -21,7 +21,7 @@ if __name__ == '__main__':
     render_mode = 'rgb_array'
     max_exec_len = 200
     num_of_trajectories = 60
-    domain = domains_files[3]  # e.g., Acrobot
+    domain = domains_files[2]  # e.g., Acrobot
     fault_probability = 100  # always inject fault
     fault_mode_generator = FaultModeGeneratorDiscrete()
 
@@ -49,6 +49,7 @@ if __name__ == '__main__':
 
         for dim in range(num_dims):
             print(f"📈 Plotting regression lines from input features to output dimension {dim}")
+            model.print_regression_equation(output_dim=dim)
             model.plot_all_feature_regressions(output_dim=dim)
 
 
