@@ -11,6 +11,8 @@ from pipeline import separate_trajectory
 from Faulty_Data_Extractor import get_faulty_data, get_augmented_faulty_data, get_all_transitions_under_fault
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import train_test_split
+from FaultyEnvironment import FaultyEnvironment
+
 
 if __name__ == '__main__':
     # ======= CONFIGURATION ========
@@ -30,6 +32,7 @@ if __name__ == '__main__':
     domain_name = param_dict['domain_name']
     model_name = param_dict['ml_model_name']
     all_fault_modes = param_dict['possible_fault_mode_names']
+    ml_model_name = param_dict['ml_model_name']
     model_type='linear'
 
     models =train_models_for_fault_modes(domain_name,
@@ -42,15 +45,40 @@ if __name__ == '__main__':
                                          render_mode,
                                          max_exec_len,
                                          model_type)
+    # for fault_mode, model in models.items():
+    #     print(f"\n📊 Fault Mode: {fault_mode}")
+    #
+    #     num_dims = model.Y.shape[1]  # number of output dimensions
+    #
+    #     for dim in range(num_dims):
+    #         print(f"📈 Plotting regression lines from input features to output dimension {dim}")
+    #         model.print_regression_equation(output_dim=dim)
+    #         model.plot_all_feature_regressions(output_dim=dim)
+    # Dictionary to hold faulty envs per fault mode
+
+    faulty_envs = {}
+    policy, env = load_policy(domain_name, ml_model_name, render_mode)
+
+    # Build each FaultyEnvironment
     for fault_mode, model in models.items():
-        print(f"\n📊 Fault Mode: {fault_mode}")
+        fault_env = FaultyEnvironment(
+            fault_mode=fault_mode,
+            fault_model=model,
+            policy=policy,
+            env=env,
+            domain_name= domain_name
+        )
+        faulty_envs[str(fault_mode)] = fault_env  # use string as key for clarity
+        start_state = np.array([0,1,0,-1]) # or one from a trajectory
+        steps = 5
 
-        num_dims = model.Y.shape[1]  # number of output dimensions
+        for fault_mode, env in faulty_envs.items():
+            print(f"\n🔍 Fault Mode: {fault_mode}")
+            traj = env.rollout(n_steps=steps, start_state=start_state)
+            for step in traj:
+                print(step)
 
-        for dim in range(num_dims):
-            print(f"📈 Plotting regression lines from input features to output dimension {dim}")
-            model.print_regression_equation(output_dim=dim)
-            model.plot_all_feature_regressions(output_dim=dim)
+
 
 
 
