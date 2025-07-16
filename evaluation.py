@@ -107,7 +107,7 @@ def evaluate_model_on_testset(model, test_data):
     predictions = []
 
     for state, action, true_next_state in test_data:
-        predicted = model.predict(state, action)[0]
+        predicted = model.predict(state)[0]
         actuals.append(true_next_state)
         predictions.append(predicted)
 

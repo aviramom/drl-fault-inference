@@ -22,7 +22,7 @@ class FaultyTransitionModel:
     def _prepare_data1(self, data):
         X, Y = [], []
         for s, a, s_prime in data:
-            x = np.append(s, a)
+            x = s
             y = s_prime  # or: y = s_prime - s for delta prediction
             X.append(x)
             Y.append(y)
@@ -35,7 +35,7 @@ class FaultyTransitionModel:
             # Convert scalar state to 1D array if needed
             s_array = np.atleast_1d(s)
             s_prime_array = np.atleast_1d(s_prime)
-            x = np.append(s_array, a)
+            x = s_array
             y = s_prime_array
             X.append(x)
             Y.append(y)
@@ -43,19 +43,17 @@ class FaultyTransitionModel:
         self.Y = np.array(Y)
 
     def _train_model(self):
-        X_train, X_test, Y_train, Y_test = train_test_split(self.X, self.Y, test_size=0.2, random_state=42)
-
         if self.model_type == 'mlp':
             self.model = MLPRegressor(hidden_layer_sizes=(64, 64), activation='relu', max_iter=1000, random_state=42)
         else:
             self.model = LinearRegression()
 
-        self.model.fit(X_train, Y_train)
-        Y_pred = self.model.predict(X_test)
-        self.mse = mean_squared_error(Y_test, Y_pred)
+        self.model.fit(self.X, self.Y)
+        Y_pred = self.model.predict(self.X)
+        self.mse = mean_squared_error(self.Y, Y_pred)
 
-    def predict(self, state, action):
-        x = np.append(state, action).reshape(1, -1)
+    def predict(self, state):
+        x = np.atleast_2d(state)
         return self.model.predict(x)
 
     def score(self):

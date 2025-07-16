@@ -39,3 +39,18 @@ def filter_only_faulted_tuples(tuples, fault_mode_str):
     """
     fault_mapping = eval(fault_mode_str)
     return [t for t in tuples if fault_mapping[t[1]] != t[1]]
+
+
+def filter_only_action_tuples(tuples, action):
+    """
+    Filters (state, action, next_state) tuples where the fault actually changed the action.
+
+    Args:
+        tuples: list of (state, action, next_state)
+        action: string representation of the action
+
+    Returns:
+        list of only faulty tuples (where action != faulty_action)
+    """
+
+    return [t for t in tuples if action == t[1]]

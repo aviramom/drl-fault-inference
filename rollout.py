@@ -219,7 +219,13 @@ def train_models_for_fault_modes(
     models_by_fault = {}
 
     for fault_mode in all_fault_modes:
+
         print(f"\n==== Training model for fault mode: {fault_mode} ====")
+        fault_mapping = eval(fault_mode)
+        print(f"\n==== Training models for fault mode: {fault_mode} ====")
+
+        # Identify faulty actions: actions i such that fault_mapping[i] != i
+        faulty_actions = [i for i, f in enumerate(fault_mapping) if f != i]
 
         # Collect all trajectories for this fault mode
         all_trajectories = collect_trajectories_with_faults(
@@ -241,16 +247,23 @@ def train_models_for_fault_modes(
         for t in test_trajectories:
             test_data.extend(get_all_transitions_from_trajectory(domain_name, render_mode, t))
 
-        train_data = filter_only_faulted_tuples(train_data, fault_mode)
-        test_data = filter_only_faulted_tuples(test_data, fault_mode)
-        print(f"Total training samples: {len(train_data)}, testing samples: {len(test_data)}")
+        for faulty_action in faulty_actions:
+            train_data = filter_only_action_tuples(train_data, faulty_action)
+            test_data = filter_only_action_tuples(test_data, faulty_action)
+            print(f"Total training samples: {len(train_data)}, testing samples: {len(test_data)}")
 
-        # Train model
-        model = FaultyTransitionModel(fault_mode=fault_mode, data=train_data, model_type=model_type)
-        models_by_fault[fault_mode] = model
+            if len(train_data) == 0 or len(test_data) == 0:
+                print(f"⚠️ Skipping faulty action {faulty_action} in mode {fault_mode} due to insufficient data.")
+                continue
 
-        # Evaluate model
-        evaluate_model_on_testset(model, test_data)
+            # Train model
+            model = FaultyTransitionModel(fault_mode=f"{fault_mode}::a={faulty_action}", data=train_data,
+                                          model_type=model_type)
+            models_by_fault[fault_mode] = model
+
+            # Evaluate model
+            evaluate_model_on_testset(model, test_data)
+
 
     print("\n✅ All models trained and evaluated.")
     return models_by_fault
