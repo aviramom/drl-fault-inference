@@ -246,7 +246,7 @@ def train_models_for_fault_modes(
         test_data = []
         for t in test_trajectories:
             test_data.extend(get_all_transitions_from_trajectory(domain_name, render_mode, t))
-
+        models_by_fault[fault_mode] = {}
         for faulty_action in faulty_actions:
             train_data = filter_only_action_tuples(train_data, faulty_action)
             test_data = filter_only_action_tuples(test_data, faulty_action)
@@ -259,7 +259,7 @@ def train_models_for_fault_modes(
             # Train model
             model = FaultyTransitionModel(fault_mode=f"{fault_mode}::a={faulty_action}", data=train_data,
                                           model_type=model_type)
-            models_by_fault[fault_mode] = model
+            models_by_fault[fault_mode][faulty_action] = model
 
             # Evaluate model
             evaluate_model_on_testset(model, test_data)
