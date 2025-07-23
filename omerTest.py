@@ -16,14 +16,14 @@ from FaultyEnvironment import FaultyEnvironment
 
 if __name__ == '__main__':
     # ======= CONFIGURATION ========
-    domains_files = ['e2000_Acrobot.json', 'e7000_Breakout.json', 'e3000_CartPole.json',
+    domains_files = ['e2000_Acrobot.json', 'e3000_CartPole.json',
                      'e6000_FrozenLake.json', 'e4000_MountainCar.json', 'e5000_Taxi.json']
 
     debug_mode = False
     render_mode = 'rgb_array'
     max_exec_len = 200
     num_of_trajectories = 60
-    domain = domains_files[2]  # e.g., Acrobot
+    domain = domains_files[4]  # e.g., Acrobot
     fault_probability = 100  # always inject fault
     fault_mode_generator = FaultModeGeneratorDiscrete()
 
@@ -54,7 +54,7 @@ if __name__ == '__main__':
             for dim in range(num_dims):
                 print(f"📈 Plotting regression lines from input features to output dimension {dim}")
                 model.print_regression_equation(output_dim=dim)
-                model.plot_all_feature_regressions(output_dim=dim)
+                #model.plot_all_feature_regressions(output_dim=dim)
 
     #Dictionary to hold faulty envs per fault mode
     # faulty_envs = {}

@@ -1,7 +1,7 @@
 from sklearn.metrics import mean_squared_error
 import numpy as np
 import numpy as np
-
+from collections import Counter
 import no_faults_executor as nfe
 import with_faults_executor as wfe
 from FaultyTransitionModel import FaultyTransitionModel
@@ -222,7 +222,7 @@ def train_models_for_fault_modes(
 
         print(f"\n==== Training model for fault mode: {fault_mode} ====")
         fault_mapping = eval(fault_mode)
-        print(f"\n==== Training models for fault mode: {fault_mode} ====")
+
 
         # Identify faulty actions: actions i such that fault_mapping[i] != i
         faulty_actions = [i for i, f in enumerate(fault_mapping) if f != i]
@@ -233,6 +233,17 @@ def train_models_for_fault_modes(
             fault_probability, render_mode, model_name,
             fault_mode_generator, max_exec_len
         )
+
+        # Count actions across all collected trajectories
+        action_counter = Counter()
+
+        for traj in all_trajectories:
+            for (_, action, _) in get_all_transitions_from_trajectory(domain_name, render_mode, traj):
+                action_counter[action] += 1
+
+        print(f"🔢 Action counts for fault mode {fault_mode}:")
+        for action, count in sorted(action_counter.items()):
+            print(f"  Action {action}: {count} occurrences")
 
         # Split trajectories BEFORE extracting transitions
         train_trajectories, test_trajectories = train_test_split(all_trajectories, test_size=0.2, random_state=42)
@@ -250,7 +261,7 @@ def train_models_for_fault_modes(
         for faulty_action in faulty_actions:
             train_data = filter_only_action_tuples(train_data, faulty_action)
             test_data = filter_only_action_tuples(test_data, faulty_action)
-            print(f"Total training samples: {len(train_data)}, testing samples: {len(test_data)}")
+            print(f"Total training samples: {len(train_data)}, testing samples: {len(test_data)}   {fault_mode} and action {faulty_action}")
 
             if len(train_data) == 0 or len(test_data) == 0:
                 print(f"⚠️ Skipping faulty action {faulty_action} in mode {fault_mode} due to insufficient data.")
