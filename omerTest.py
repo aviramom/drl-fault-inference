@@ -1,5 +1,9 @@
+from random import random
+
 import numpy as np
 from rollout import *
+from omer_diagnoser import *
+from state_refiners import refiners
 import no_faults_executor as nfe
 import with_faults_executor as wfe
 from FaultyTransitionModel import FaultyTransitionModel
@@ -20,10 +24,10 @@ if __name__ == '__main__':
                      'e6000_FrozenLake.json', 'e4000_MountainCar.json', 'e5000_Taxi.json']
 
     debug_mode = False
-    render_mode = 'rgb_array'
-    max_exec_len = 200
+    render_mode = 'rgb_array'   # "human", "rgb_array"
+    max_exec_len = 400
     num_of_trajectories = 60
-    domain = domains_files[4]  # e.g., Acrobot
+    domain = domains_files[3]  # e.g., Acrobot
     fault_probability = 100  # always inject fault
     fault_mode_generator = FaultModeGeneratorDiscrete()
 
@@ -55,6 +59,13 @@ if __name__ == '__main__':
                 print(f"📈 Plotting regression lines from input features to output dimension {dim}")
                 model.print_regression_equation(output_dim=dim)
                 #model.plot_all_feature_regressions(output_dim=dim)
+
+    policy, env = load_policy(domain_name, ml_model_name, render_mode)
+    initial_obs, _ = env.reset(np.random.randint(0, 1000000))
+    simulated_traj = simulate_faulty_run(initial_obs,policy, env,models, "[1,0,2]", domain_name,15, refiners)
+    for t in simulated_traj:
+        print(t)
+
 
     #Dictionary to hold faulty envs per fault mode
     # faulty_envs = {}

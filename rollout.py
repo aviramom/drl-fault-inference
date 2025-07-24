@@ -259,21 +259,21 @@ def train_models_for_fault_modes(
             test_data.extend(get_all_transitions_from_trajectory(domain_name, render_mode, t))
         models_by_fault[fault_mode] = {}
         for faulty_action in faulty_actions:
-            train_data = filter_only_action_tuples(train_data, faulty_action)
-            test_data = filter_only_action_tuples(test_data, faulty_action)
+            train_data_filtered = filter_only_action_tuples(train_data, faulty_action)
+            test_data_filtered = filter_only_action_tuples(test_data, faulty_action)
             print(f"Total training samples: {len(train_data)}, testing samples: {len(test_data)}   {fault_mode} and action {faulty_action}")
 
-            if len(train_data) == 0 or len(test_data) == 0:
+            if len(train_data_filtered) == 0 or len(test_data_filtered) == 0:
                 print(f"⚠️ Skipping faulty action {faulty_action} in mode {fault_mode} due to insufficient data.")
                 continue
 
             # Train model
-            model = FaultyTransitionModel(fault_mode=f"{fault_mode}::a={faulty_action}", data=train_data,
+            model = FaultyTransitionModel(fault_mode=f"{fault_mode}::a={faulty_action}", data=train_data_filtered,
                                           model_type=model_type)
             models_by_fault[fault_mode][faulty_action] = model
 
             # Evaluate model
-            evaluate_model_on_testset(model, test_data)
+            evaluate_model_on_testset(model, test_data_filtered)
 
 
     print("\n✅ All models trained and evaluated.")

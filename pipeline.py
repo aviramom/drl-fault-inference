@@ -270,7 +270,7 @@ def run_experimental_setup_new(arguments, render_mode, debug_print):
                             # if diagnoser_name != "W" and num_candidate_fault_modes == 0:
                             #     print(f'SKIP\n')
                             #     continue
-                            # if diagnoser_name in ["SIF"] and percent_visible_states < 30:
+                            # if diagnoser_name in ["SIF"] and percent_visible_states < 30: AVI told me!!!!!
                             #     print(f'SKIP\n')
                             #     continue
                             # if diagnoser_name in ["SIFU5"] and percent_visible_states < 30:
