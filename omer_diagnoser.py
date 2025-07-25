@@ -28,13 +28,17 @@ def simulate_faulty_run(
         List[dict]: Simulated trajectory of transitions.
     """
     fault_mapping = eval(fault_mode_str)
-    state = np.array(start_state)
+    state = start_state
     trajectory = []
 
     for _ in range(num_steps):
+
+        state = np.array(state).flatten()
+
+
         refined_state = refiners[domain_name](state)
         tried_action, _ = policy.predict(refined_state, deterministic=True)
-        tried_action = int(tried_action)
+        tried_action = int(tried_action.item()) if isinstance(tried_action, np.ndarray) else int(tried_action)
 
         # Store current state before transition
         current_state = state
@@ -42,9 +46,10 @@ def simulate_faulty_run(
         if fault_mode_str in models_by_fault and tried_action in models_by_fault[fault_mode_str]:
             model = models_by_fault[fault_mode_str][tried_action]
             used_model = True
-            next_state = model.predict(current_state)
+            next_state = model.predict(current_state).flatten()
         else:
             used_model = False
+            env.set_state(current_state)
             obs, _, _, _, _ = env.step(tried_action)
             next_state = obs
 

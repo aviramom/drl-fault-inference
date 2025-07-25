@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
     policy, env = load_policy(domain_name, ml_model_name, render_mode)
     initial_obs, _ = env.reset(np.random.randint(0, 1000000))
-    simulated_traj = simulate_faulty_run(initial_obs,policy, env,models, "[1,0,2]", domain_name,15, refiners)
+    simulated_traj = simulate_faulty_run(initial_obs,policy, env,models, all_fault_modes[0], domain_name,15, refiners)
     for t in simulated_traj:
         print(t)
 
