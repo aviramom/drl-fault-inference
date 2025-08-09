@@ -3,7 +3,7 @@ import math
 import random
 import json
 from datetime import datetime
-
+from p_diagnosers import diagnosers
 import numpy as np
 import xlsxwriter
 
@@ -260,6 +260,8 @@ def run_experimental_setup_new(arguments, render_mode, debug_print):
                             print(f"execution_fault_mode_name: {execution_fault_mode_name}, fault_probability: {fault_probability}, instance_seed: {instance_seed}, percent_visible_states: {percent_visible_states}, num_candidate_fault_modes: {num_candidate_fault_modes}, diagnose_name: {diagnoser_name}")
                             print(f"{diagnoser_name}")
 
+                            ##### comment from here #####################3
+
                             # # ### run the algorithm - except special cases of W, SN
                             # if diagnoser_name == "W" and num_candidate_fault_modes != 0:
                             #     print(f'SKIP\n')
@@ -270,7 +272,7 @@ def run_experimental_setup_new(arguments, render_mode, debug_print):
                             # if diagnoser_name != "W" and num_candidate_fault_modes == 0:
                             #     print(f'SKIP\n')
                             #     continue
-                            # if diagnoser_name in ["SIF"] and percent_visible_states < 30: AVI told me!!!!!
+                            # if diagnoser_name in ["SIF"] and percent_visible_states < 30: #AVI told me!!!!!
                             #     print(f'SKIP\n')
                             #     continue
                             # if diagnoser_name in ["SIFU5"] and percent_visible_states < 30:
@@ -281,7 +283,8 @@ def run_experimental_setup_new(arguments, render_mode, debug_print):
                             #     continue
                             # diagnoser = diagnosers[diagnoser_name]
                             # raw_output = diagnoser(debug_print=debug_print, render_mode=render_mode, instance_seed=instance_seed, ml_model_name=ml_model_name, domain_name=domain_name, observations=masked_observations, candidate_fault_modes=candidate_fault_modes)
-                            #
+
+
                             # # ### ranking the diagnoses
                             # if diagnoser_name == "W":
                             #     output = rank_diagnoses_WFM(raw_output, registered_actions, debug_print)
@@ -290,10 +293,13 @@ def run_experimental_setup_new(arguments, render_mode, debug_print):
                             # else:
                             #     output = rank_diagnoses_SFM(raw_output, registered_actions, debug_print)
 
+                            output={}
                             # ### preparing record for writing to excel file
                             # record = prepare_record(domain_name, debug_print, execution_fault_mode_name, instance_seed, fault_probability, percent_visible_states, param_dict['possible_fault_mode_names'], num_candidate_fault_modes,
                             #                         render_mode, ml_model_name, max_exec_len, trajectory_execution, faulty_actions_indices, registered_actions, observations, observation_mask, masked_observations,
                             #                         candidate_fault_modes, output, diagnoser_name, longest_hidden_state_sequence)
+
+                            ################# to here #############################
                             record = prepare_record(domain_name, debug_print, execution_fault_mode_name, instance_seed, fault_probability, percent_visible_states, param_dict['possible_fault_mode_names'], num_candidate_fault_modes,
                                                     render_mode, ml_model_name, max_exec_len, trajectory_execution, faulty_actions_indices, registered_actions, observations, observation_mask, masked_observations,
                                                     candidate_fault_modes, None, diagnoser_name, longest_hidden_state_sequence)

@@ -16,6 +16,7 @@ from Faulty_Data_Extractor import get_faulty_data, get_augmented_faulty_data, ge
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import train_test_split
 from FaultyEnvironment import FaultyEnvironment
+from persist_models import *
 
 
 if __name__ == '__main__':
@@ -27,44 +28,45 @@ if __name__ == '__main__':
     render_mode = 'rgb_array'   # "human", "rgb_array"
     max_exec_len = 400
     num_of_trajectories = 60
-    domain = domains_files[3]  # e.g., Acrobot
     fault_probability = 100  # always inject fault
     fault_mode_generator = FaultModeGeneratorDiscrete()
 
-    # ======= LOAD PARAMETERS ========
-    param_dict = read_json_data(f"experimental inputs/{domain}")
-    domain_name = param_dict['domain_name']
-    model_name = param_dict['ml_model_name']
-    all_fault_modes = param_dict['possible_fault_mode_names']
-    ml_model_name = param_dict['ml_model_name']
-    model_type='linear'
 
-    models =train_models_for_fault_modes(domain_name,
-                                         model_name,
-                                         all_fault_modes,
-                                         fault_mode_generator,
-                                         num_of_trajectories,
-                                         debug_mode,
-                                         fault_probability,
-                                         render_mode,
-                                         max_exec_len,
-                                         model_type)
-    for fault_mode, action in models.items():
-        for faulty_action, model in action.items():
-            print(f"\n📊 Fault Mode: {model.fault_mode}")
+    for domain in domains_files:
 
-            num_dims = model.Y.shape[1]  # number of output dimensions
+        # ======= LOAD PARAMETERS ========
+        param_dict = read_json_data(f"experimental inputs/{domain}")
+        domain_name = param_dict['domain_name']
+        model_name = param_dict['ml_model_name']
+        all_fault_modes = param_dict['possible_fault_mode_names']
+        ml_model_name = param_dict['ml_model_name']
+        model_type='linear'
 
-            for dim in range(num_dims):
-                print(f"📈 Plotting regression lines from input features to output dimension {dim}")
-                model.print_regression_equation(output_dim=dim)
-                #model.plot_all_feature_regressions(output_dim=dim)
+        models =train_models_for_fault_modes(domain_name,
+                                             model_name,
+                                             all_fault_modes,
+                                             fault_mode_generator,
+                                             num_of_trajectories,
+                                             debug_mode,
+                                             fault_probability,
+                                             render_mode,
+                                             max_exec_len,
+                                             model_type)
 
-    policy, env = load_policy(domain_name, ml_model_name, render_mode)
-    initial_obs, _ = env.reset(np.random.randint(0, 1000000))
-    simulated_traj = simulate_faulty_run(initial_obs,policy, env,models, all_fault_modes[0], domain_name,15, refiners)
-    for t in simulated_traj:
-        print(t)
+
+        save_models_by_fault(models, domain_name,model_name)
+    # for fault_mode, action in models.items():
+    #     for faulty_action, model in action.items():
+    #         print(f"\n📊 Fault Mode: {model.fault_mode}")
+    #
+    #         num_dims = model.Y.shape[1]  # number of output dimensions
+    #
+    #         for dim in range(num_dims):
+    #             print(f"📈 Plotting regression lines from input features to output dimension {dim}")
+    #             model.print_regression_equation(output_dim=dim)
+    #             #model.plot_all_feature_regressions(output_dim=dim)
+
+
 
 
     #Dictionary to hold faulty envs per fault mode

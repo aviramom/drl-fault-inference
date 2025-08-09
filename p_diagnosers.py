@@ -2,7 +2,8 @@ import copy
 import time
 
 import gym
-
+import numpy as np
+import persist_models as pm
 from h_consts import DETERMINISTIC
 from h_raw_state_comparators import comparators
 from rl_models import models
@@ -1846,6 +1847,151 @@ def SIFU8(debug_print, render_mode, instance_seed, ml_model_name, domain_name, o
     return raw_output
 
 
+
+# --- You must implement/provide this loader. It should return:
+# models_by_fault: dict[fault_mode_str][action] -> model (with .predict(state)->next_state)
+def get_models_by_fault(domain_name, ml_model_name):
+    return pm.load_models_by_fault(domain_name, ml_model_name)
+
+
+
+######## my diagnoser####################
+def SIFM(debug_print, render_mode, instance_seed, ml_model_name, domain_name, observations, candidate_fault_modes):
+    """
+    Model-based diagnoser:
+      - candidate_fault_modes: dict[name -> (ignored function)]. We only use the keys.
+      - observations: list of states (some entries may be None).
+    Returns same shape as SIF(): dict with 'diagnoses', timings, etc.
+    """
+    # 1) Load policy
+    models_dir = f"environments/{domain_name}/models/{ml_model_name}"
+    model_path = f"{models_dir}/{domain_name}__{ml_model_name}.zip"
+    policy = models[ml_model_name].load(model_path)
+
+    # 2) Env as a fallback simulator
+    simulator = wrappers[domain_name](gym.make(domain_name.replace('_', '-'), render_mode=render_mode))
+    S0, _ = simulator.reset(seed=instance_seed)
+    S0, _ = simulator.reset()
+    assert comparators[domain_name](observations[0], S0), "First obs must match reset state"
+
+    # 3) Load your trained models
+    models_by_fault = get_models_by_fault(domain_name, ml_model_name)
+
+    # timers
+    t_init = time.time()
+
+    # 4) Init hypotheses: one per fault mode key
+    G = {}
+    branch_ids = {key: 0 for key in candidate_fault_modes.keys()}
+    for fm_key in candidate_fault_modes.keys():
+        G[fm_key + f"_{branch_ids[fm_key]}"] = [fm_key, [], S0]
+        branch_ids[fm_key] += 1
+
+    init_sec = time.time() - t_init
+    diag_sec = 0.0
+    G_max = len(G)
+
+    # 5) Main loop over time
+    for i in range(1, len(observations)):
+        step_start = time.time()
+        obs_i = observations[i]
+        to_remove = []
+        to_add = {}
+
+        # iterate on a snapshot of keys (we will mutate G)
+        for key in list(G.keys()):
+            fm_key, acts, S_curr = G[key]
+
+            # policy action
+            S_arr = np.array(S_curr[0] if isinstance(S_curr, tuple) else S_curr).flatten()
+            a, _ = policy.predict(refiners[domain_name](S_arr), deterministic=DETERMINISTIC)
+            a = int(a.item()) if isinstance(a, np.ndarray) else int(a)
+
+            # ENV step from S_curr
+            simulator.set_state(S_curr)
+            S_env, _, _, _, _ = simulator.step(a)
+
+            # MODEL step if exists
+            S_model = None
+            if fm_key in models_by_fault and a in models_by_fault[fm_key]:
+                S_model = models_by_fault[fm_key][a].predict(S_arr).flatten()
+
+            if obs_i is not None:
+                env_ok   = comparators[domain_name](S_env,   obs_i)
+                model_ok = comparators[domain_name](S_model, obs_i) if S_model is not None else False
+
+                if env_ok and model_ok:
+                    # keep ENV (simplest). Optionally branch model too.
+                    if debug_print:
+                        print(f"[t={i}][{fm_key}] both match → keep ENV")
+                    G[key][1] = acts + [a]
+                    G[key][2] = S_env
+                    # Optional branch for MODEL:
+                    # child = fm_key + f"_{branch_ids[fm_key]}"
+                    # to_add[child] = [fm_key, acts + [a], S_model]
+                    # branch_ids[fm_key] += 1
+
+                elif env_ok and not model_ok:
+                    if debug_print:
+                        print(f"[t={i}][{fm_key}] env-only → keep ENV")
+                    G[key][1] = acts + [a]
+                    G[key][2] = S_env
+
+                elif (not env_ok) and model_ok:
+                    if debug_print:
+                        print(f"[t={i}][{fm_key}] model-only → keep MODEL")
+                    G[key][1] = acts + [a]
+                    G[key][2] = S_model
+
+                else:
+                    if debug_print:
+                        print(f"[t={i}][{fm_key}] neither → prune")
+                    to_remove.append(key)
+
+            else:
+                # Hidden step: keep ENV; optionally branch MODEL if different
+                if debug_print:
+                    print(f"[t={i}][{fm_key}] hidden → keep ENV")
+                G[key][1] = acts + [a]
+                G[key][2] = S_env
+
+                if S_model is not None and not comparators[domain_name](S_model, S_env):
+                    child = fm_key + f"_{branch_ids[fm_key]}"
+                    if debug_print:
+                        print(f"[t={i}][{fm_key}] hidden → branch MODEL child {child}")
+                    to_add[child] = [fm_key, acts + [a], S_model]
+                    branch_ids[fm_key] += 1
+
+        # apply adds/removes
+        for k in to_remove:
+            if k in G:
+                del G[k]
+        for k, v in to_add.items():
+            G[k] = v
+
+        diag_sec += time.time() - step_start
+        G_max = max(G_max, len(G))
+        if debug_print:
+            print(f"STEP {i}: added {len(to_add)} | pruned {len(to_remove)} | alive {len(G)}\n")
+        if len(G) == 1:
+            if debug_print:
+                print(f"Early stop: single hypothesis at t={i}")
+            break
+
+    # timings
+    return {
+        "diagnoses": G,
+        "init_rt_sec": init_sec,
+        "init_rt_ms": init_sec * 1000,
+        "diag_rt_sec": diag_sec,
+        "diag_rt_ms": diag_sec * 1000,
+        "totl_rt_sec": init_sec + diag_sec,
+        "totl_rt_ms": (init_sec + diag_sec) * 1000,
+        "G_max_size": G_max
+    }
+
+
+
 diagnosers = {
     # new fault models
     "W": W,
@@ -1858,5 +2004,6 @@ diagnosers = {
     "SIFU5": SIFU5,
     "SIFU6": SIFU6,
     "SIFU7": SIFU7,
-    "SIFU8": SIFU8
+    "SIFU8": SIFU8,
+    "SIFM": SIFM
 }
