@@ -157,7 +157,7 @@ def write_records_to_excel(records, experimental_filename):
         {'header': '13_O_longest_hidden_state_sequence'},
         {'header': '14_O_masked_observations'},
         {'header': '15_i_num_candidate_fault_modes'},
-        {'header': '16_O_candidate_fault_modes'}
+        {'header': '16_O_candidate_fault_modes'},
     ]
     rows = []
     for i in range(len(records)):
