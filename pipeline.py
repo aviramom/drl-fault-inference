@@ -202,7 +202,7 @@ def run_experimental_setup_new(arguments, render_mode, debug_print):
     ml_model_name = param_dict['ml_model_name']
 
     # ### maximum length of the execution for the experiment (each experiment file has one associated length)
-    max_exec_len = 200
+    max_exec_len = 10
 
     # ### preparing index for experimental execution tracing
     # W_instance_number = (len(param_dict['possible_fault_mode_names']) * len(param_dict['fault_probabilities']) * len(param_dict['instance_seeds']) * len(param_dict['percent_visible_states']) * len(param_dict['num_candidate_fault_modes'][:1]))
@@ -281,8 +281,8 @@ def run_experimental_setup_new(arguments, render_mode, debug_print):
                             # if diagnoser_name in ["SIFSD"] and percent_visible_states < 30:
                             #     print(f'SKIP\n')
                             #     continue
-                            # diagnoser = diagnosers[diagnoser_name]
-                            # raw_output = diagnoser(debug_print=debug_print, render_mode=render_mode, instance_seed=instance_seed, ml_model_name=ml_model_name, domain_name=domain_name, observations=masked_observations, candidate_fault_modes=candidate_fault_modes)
+                            diagnoser = diagnosers[diagnoser_name]
+                            raw_output = diagnoser(debug_print=debug_print, render_mode=render_mode, instance_seed=instance_seed, ml_model_name=ml_model_name, domain_name=domain_name, observations=masked_observations, candidate_fault_modes=candidate_fault_modes)
 
 
                             # # ### ranking the diagnoses
@@ -293,16 +293,16 @@ def run_experimental_setup_new(arguments, render_mode, debug_print):
                             # else:
                             #     output = rank_diagnoses_SFM(raw_output, registered_actions, debug_print)
 
-                            output={}
+                            output=raw_output
                             # ### preparing record for writing to excel file
-                            # record = prepare_record(domain_name, debug_print, execution_fault_mode_name, instance_seed, fault_probability, percent_visible_states, param_dict['possible_fault_mode_names'], num_candidate_fault_modes,
-                            #                         render_mode, ml_model_name, max_exec_len, trajectory_execution, faulty_actions_indices, registered_actions, observations, observation_mask, masked_observations,
-                            #                         candidate_fault_modes, output, diagnoser_name, longest_hidden_state_sequence)
-
-                            ################# to here #############################
                             record = prepare_record(domain_name, debug_print, execution_fault_mode_name, instance_seed, fault_probability, percent_visible_states, param_dict['possible_fault_mode_names'], num_candidate_fault_modes,
                                                     render_mode, ml_model_name, max_exec_len, trajectory_execution, faulty_actions_indices, registered_actions, observations, observation_mask, masked_observations,
-                                                    candidate_fault_modes, None, diagnoser_name, longest_hidden_state_sequence)
+                                                    candidate_fault_modes, output, diagnoser_name, longest_hidden_state_sequence)
+
+                            ################# to here #############################
+                            # record = prepare_record(domain_name, debug_print, execution_fault_mode_name, instance_seed, fault_probability, percent_visible_states, param_dict['possible_fault_mode_names'], num_candidate_fault_modes,
+                            #                         render_mode, ml_model_name, max_exec_len, trajectory_execution, faulty_actions_indices, registered_actions, observations, observation_mask, masked_observations,
+                            #                         candidate_fault_modes, None, diagnoser_name, longest_hidden_state_sequence)
                             records.append(record)
 
                             print(f'\n')

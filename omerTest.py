@@ -28,7 +28,7 @@ if __name__ == '__main__':
     render_mode = 'rgb_array'   # "human", "rgb_array"
     max_exec_len = 400
     num_of_trajectories = 60
-    fault_probability = 100  # always inject fault
+    fault_probability = 1  # always inject fault
     fault_mode_generator = FaultModeGeneratorDiscrete()
 
 

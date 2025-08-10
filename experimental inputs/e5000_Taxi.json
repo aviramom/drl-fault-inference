@@ -17,5 +17,5 @@
   "instance_seeds": [1],
   "percent_visible_states": [100],
   "num_candidate_fault_modes": [10],
-  "diagnoser_names": ["SIFU5"]
+  "diagnoser_names": ["SIFM"]
 }

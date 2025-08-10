@@ -1846,6 +1846,14 @@ def SIFU8(debug_print, render_mode, instance_seed, ml_model_name, domain_name, o
 
     return raw_output
 
+import numpy as np
+
+def close_enough(u, v, atol=1e-3, rtol=1e-3):
+    if u is None or v is None:
+        return False
+    u = np.array(u, dtype=float).ravel()
+    v = np.array(v, dtype=float).ravel()
+    return np.allclose(u, v, atol=atol, rtol=rtol)
 
 
 # --- You must implement/provide this loader. It should return:
@@ -1916,9 +1924,39 @@ def SIFM(debug_print, render_mode, instance_seed, ml_model_name, domain_name, ob
             if fm_key in models_by_fault and a in models_by_fault[fm_key]:
                 S_model = models_by_fault[fm_key][a].predict(S_arr).flatten()
 
+                # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+                # INSERT DEBUG BLOCK HERE (after S_env/S_model, before matching)
+                if i == 1:  # first compare only (or remove this guard to print every step)
+                    print("—— DEBUG t=1 ——")
+                    print("obs[0]=", observations[0])
+                    print("S0(sim)=", S0)  # ensure S0 is in outer scope (from reset)
+                    print("policy_action a=", a)
+                    print("available model actions for", fm_key, ":",
+                          sorted(models_by_fault.get(fm_key, {}).keys()))
+                    print("has_model=", (fm_key in models_by_fault and a in models_by_fault[fm_key]))
+                    print("S_env=", np.array(S_env))
+                    if S_model is not None:
+                        print("S_model=", np.array(S_model))
+                    print("obs[1]=", np.array(obs_i))
+
+                    def d(u, v):
+                        if u is None or v is None: return None
+                        u = np.array(u, dtype=float).ravel();
+                        v = np.array(v, dtype=float).ravel()
+                        return float(np.linalg.norm(u - v))
+
+                    print("||S_env-obs||=", d(S_env, obs_i))
+                    print("||S_mod-obs||=", d(S_model, obs_i))
+                    print("env_ok=", comparators[domain_name](S_env, obs_i),
+                          "model_ok=", (comparators[domain_name](S_model, obs_i) if S_model is not None else False))
+                # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+
             if obs_i is not None:
-                env_ok   = comparators[domain_name](S_env,   obs_i)
-                model_ok = comparators[domain_name](S_model, obs_i) if S_model is not None else False
+                # env_ok   = comparators[domain_name](S_env,   obs_i)
+                # model_ok = comparators[domain_name](S_model, obs_i) if S_model is not None else False
+                env_ok = close_enough(S_env, obs_i, atol=1e-3, rtol=1e-3)
+                model_ok = close_enough(S_model, obs_i, atol=1e-3, rtol=1e-3) if S_model is not None else False
 
                 if env_ok and model_ok:
                     # keep ENV (simplest). Optionally branch model too.
