@@ -1846,9 +1846,13 @@ def SIFU8(debug_print, render_mode, instance_seed, ml_model_name, domain_name, o
 
     return raw_output
 
+
+
+
+
 import numpy as np
 
-def close_enough(u, v, atol=1e-3, rtol=1e-3):
+def close_enough(u, v, atol=1e-2, rtol=1e-2):
     if u is None or v is None:
         return False
     u = np.array(u, dtype=float).ravel()
@@ -1912,7 +1916,19 @@ def SIFM(debug_print, render_mode, instance_seed, ml_model_name, domain_name, ob
 
             # policy action
             S_arr = np.array(S_curr[0] if isinstance(S_curr, tuple) else S_curr).flatten()
-            a, _ = policy.predict(refiners[domain_name](S_arr), deterministic=DETERMINISTIC)
+
+            ##### added to cartpole######
+            S_refined = refiners[domain_name](S_arr)
+
+            # # ✅ ONLY reshape if shape is 1D
+            # if isinstance(S_refined, np.ndarray) and S_refined.ndim == 1:
+            #     S_refined = S_refined.reshape(1, -1)
+            # print("fm_key:", fm_key)
+            # print("S_arr shape:", S_arr.shape)
+            # print("S_refined before reshape:", S_refined, "shape:", np.array(S_refined).shape)
+            # print("before prediction")
+            a, _ = policy.predict(S_refined, deterministic=DETERMINISTIC)
+            # print("after prediction")
             a = int(a.item()) if isinstance(a, np.ndarray) else int(a)
 
             # ENV step from S_curr
@@ -1926,37 +1942,37 @@ def SIFM(debug_print, render_mode, instance_seed, ml_model_name, domain_name, ob
 
                 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
                 # INSERT DEBUG BLOCK HERE (after S_env/S_model, before matching)
-                if i == 1:  # first compare only (or remove this guard to print every step)
-                    print("—— DEBUG t=1 ——")
-                    print("obs[0]=", observations[0])
-                    print("S0(sim)=", S0)  # ensure S0 is in outer scope (from reset)
-                    print("policy_action a=", a)
-                    print("available model actions for", fm_key, ":",
-                          sorted(models_by_fault.get(fm_key, {}).keys()))
-                    print("has_model=", (fm_key in models_by_fault and a in models_by_fault[fm_key]))
-                    print("S_env=", np.array(S_env))
-                    if S_model is not None:
-                        print("S_model=", np.array(S_model))
-                    print("obs[1]=", np.array(obs_i))
-
-                    def d(u, v):
-                        if u is None or v is None: return None
-                        u = np.array(u, dtype=float).ravel();
-                        v = np.array(v, dtype=float).ravel()
-                        return float(np.linalg.norm(u - v))
-
-                    print("||S_env-obs||=", d(S_env, obs_i))
-                    print("||S_mod-obs||=", d(S_model, obs_i))
-                    print("env_ok=", comparators[domain_name](S_env, obs_i),
-                          "model_ok=", (comparators[domain_name](S_model, obs_i) if S_model is not None else False))
-                # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+                # if i == 1:  # first compare only (or remove this guard to print every step)
+                #     print("—— DEBUG t=1 ——")
+                #     print("obs[0]=", observations[0])
+                #     print("S0(sim)=", S0)  # ensure S0 is in outer scope (from reset)
+                #     print("policy_action a=", a)
+                #     print("available model actions for", fm_key, ":",
+                #           sorted(models_by_fault.get(fm_key, {}).keys()))
+                #     print("has_model=", (fm_key in models_by_fault and a in models_by_fault[fm_key]))
+                #     print("S_env=", np.array(S_env))
+                #     if S_model is not None:
+                #         print("S_model=", np.array(S_model))
+                #     print("obs[1]=", np.array(obs_i))
+                #
+                #     def d(u, v):
+                #         if u is None or v is None: return None
+                #         u = np.array(u, dtype=float).ravel();
+                #         v = np.array(v, dtype=float).ravel()
+                #         return float(np.linalg.norm(u - v))
+                #
+                #     print("||S_env-obs||=", d(S_env, obs_i))
+                #     print("||S_mod-obs||=", d(S_model, obs_i))
+                #     print("env_ok=", comparators[domain_name](S_env, obs_i),
+                #           "model_ok=", (comparators[domain_name](S_model, obs_i) if S_model is not None else False))
+                # # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 
             if obs_i is not None:
                 # env_ok   = comparators[domain_name](S_env,   obs_i)
                 # model_ok = comparators[domain_name](S_model, obs_i) if S_model is not None else False
-                env_ok = close_enough(S_env, obs_i, atol=1e-3, rtol=1e-3)
-                model_ok = close_enough(S_model, obs_i, atol=1e-3, rtol=1e-3) if S_model is not None else False
+                env_ok = close_enough(S_env, obs_i, atol=1e-2, rtol=1e-2)
+                model_ok = close_enough(S_model, obs_i, atol=1e-2, rtol=1e-2) if S_model is not None else False
 
                 if env_ok and model_ok:
                     # keep ENV (simplest). Optionally branch model too.
@@ -2029,6 +2045,300 @@ def SIFM(debug_print, render_mode, instance_seed, ml_model_name, domain_name, ob
     }
 
 
+def SIFU8M(debug_print, render_mode, instance_seed, ml_model_name, domain_name, observations, candidate_fault_modes):
+    # Load policy
+    models_dir = f"environments/{domain_name}/models/{ml_model_name}"
+    model_path = f"{models_dir}/{domain_name}__{ml_model_name}.zip"
+    policy = models[ml_model_name].load(model_path)
+
+    # Load environment simulator
+    simulator = wrappers[domain_name](gym.make(domain_name.replace('_', '-'), render_mode=render_mode))
+    S_0, _ = simulator.reset(seed=instance_seed)
+    assert comparators[domain_name](observations[0], S_0)
+
+    # Load trained fault models
+    models_by_fault = get_models_by_fault(domain_name, ml_model_name)
+
+    # Initialization
+    G = {}
+    I = {key: 0 for key in candidate_fault_modes}
+    for key in candidate_fault_modes:
+        G[key + f'_{I[key]}'] = [candidate_fault_modes[key], [None] * (len(observations) - 1), None]
+        I[key] += 1
+
+    init_rt, diag_rt, G_max = 0.0, 0.0, 0
+
+    # Find observation gaps
+    index_pairs = {}
+    i = 0
+    for j in range(1, len(observations)):
+        if observations[j] is not None:
+            index_pairs[f"{str(i).zfill(3)}_{str(j).zfill(3)}"] = [j - i, None]
+            i = j
+
+    # Find conflicting pairs
+    index_pairs_failed = {}
+    for pair in index_pairs:
+        actions = set()
+        b, e = map(int, pair.split("_"))
+        simulator.set_state(observations[b])
+        for i in range(e - b):
+            a, _ = policy.predict(refiners[domain_name](observations[b + i]), deterministic=DETERMINISTIC)
+            actions.add(int(a))
+            simulator.step(a)
+        if not comparators[domain_name](observations[e], simulator.get_state()):
+            index_pairs_failed[pair] = [e - b, actions]
+
+    index_queue = [(int(k.split("_")[0]), int(k.split("_")[1])) for k in index_pairs_failed]
+
+    # Initial filtering
+    for pair, (_, actions) in index_pairs_failed.items():
+        fms_to_remove = []
+        for fm in G:
+            fm_raw = fm.split('_')[0]
+            if all(eval(fm_raw)[a] == a for a in actions):
+                fms_to_remove.append(fm)
+        for fm in fms_to_remove:
+            G.pop(fm)
+
+    # Main loop
+    for b, e in index_queue:
+        if len(G) == 1:
+            break
+        for key in G:
+            G[key][2] = observations[b]
+        for i in range(b + 1, e + 1):
+            to_remove, to_add = [], {}
+            for key in list(G):
+                fault_fn, actions_so_far, state = G[key]
+                a, _ = policy.predict(refiners[domain_name](state), deterministic=DETERMINISTIC)
+                a = int(a)
+                a_faulty = fault_fn(a)
+
+                # Step with normal action
+                simulator.set_state(state)
+                S_normal, *_ = simulator.step(a)
+
+                # Step with faulty action via model
+                S_model = None
+                fm_key = key.split('_')[0]
+                if fm_key in models_by_fault and a_faulty in models_by_fault[fm_key]:
+                    S_model = models_by_fault[fm_key][a_faulty].predict(np.array(state).flatten()).flatten()
+                else:
+                    simulator.set_state(state)
+                    S_model, *_ = simulator.step(a_faulty)
+
+                obs_i = observations[i]
+                if obs_i is not None:
+                    eq_normal = comparators[domain_name](S_normal, obs_i)
+                    eq_faulty = comparators[domain_name](S_model, obs_i)
+                    if eq_normal and eq_faulty:
+                        G[key][1][i - 1] = a
+                        G[key][2] = S_normal
+                    elif eq_normal:
+                        G[key][1][i - 1] = a
+                        G[key][2] = S_normal
+                    elif eq_faulty:
+                        G[key][1][i - 1] = a_faulty
+                        G[key][2] = S_model
+                    else:
+                        to_remove.append(key)
+                else:
+                    G[key][1][i - 1] = a
+                    G[key][2] = S_normal
+                    if a != a_faulty:
+                        new_key = fm_key + f"_{I[fm_key]}"
+                        to_add[new_key] = [fault_fn, G[key][1][:], S_model]
+                        to_add[new_key][1][i - 1] = a_faulty
+                        I[fm_key] += 1
+            for k in to_remove:
+                G.pop(k, None)
+            G.update(to_add)
+            G_max = max(G_max, len(G))
+            if len(G) == 1:
+                break
+
+    return {
+        "diagnoses": G,
+        "init_rt_sec": init_rt,
+        "init_rt_ms": init_rt * 1000,
+        "diag_rt_sec": diag_rt,
+        "diag_rt_ms": diag_rt * 1000,
+        "totl_rt_sec": init_rt + diag_rt,
+        "totl_rt_ms": (init_rt + diag_rt) * 1000,
+        "G_max_size": G_max,
+    }
+
+
+
+
+
+
+def SIFM_scored(debug_print, render_mode, instance_seed, ml_model_name, domain_name, observations, candidate_fault_modes):
+    """
+    Score-based diagnoser (no hard pruning).
+    For each candidate fault mode:
+      - roll forward using policy action 'a' from the current candidate state
+      - compare predicted next state(s) to the observed state (if any)
+      - add a score increment that is higher when the prediction is closer to the observation
+    At the end, the winner is the candidate with the highest total score.
+    """
+    # 1) Load policy
+    models_dir = f"environments/{domain_name}/models/{ml_model_name}"
+    model_path = f"{models_dir}/{domain_name}__{ml_model_name}.zip"
+    policy = models[ml_model_name].load(model_path)
+
+    # 2) Env as simulator (fallback)
+    simulator = wrappers[domain_name](gym.make(domain_name.replace('_', '-'), render_mode=render_mode))
+    S0, _ = simulator.reset(seed=instance_seed)
+    S0, _ = simulator.reset()
+    assert comparators[domain_name](observations[0], S0), "First obs must match reset state"
+
+    # 3) Load learned one-step models per (fault_mode, action)
+    models_by_fault = get_models_by_fault(domain_name, ml_model_name)
+
+    # --- helpers -------------------------------------------------------------
+    def to_list(x):
+        if x is None:
+            return None
+        return np.asarray(x, dtype=float).ravel().tolist()
+
+    # Normalize distances so multi-d environments are comparable.
+    # Use first non-None observation to derive a crude per-dim scale.
+    first_obs = next((o for o in observations if o is not None), observations[0])
+    scale = np.maximum(np.abs(np.asarray(first_obs, dtype=float).ravel()), 1.0)
+    inv_scale = 1.0 / scale
+    dim = float(scale.size)
+
+    def norm_l2(u, v):
+        """Average normalized L2 distance between two states."""
+        if u is None or v is None:
+            return np.inf
+        u = np.asarray(u, dtype=float).ravel()
+        v = np.asarray(v, dtype=float).ravel()
+        d = (u - v) * inv_scale
+        return float(np.linalg.norm(d) / np.sqrt(dim))
+
+    # Convert distance to a positive score: smaller distance → larger score.
+    # Using -log(eps + d) gives nice separation without exploding.
+    EPS = 1e-9
+    def score_from_distance(d):
+        if not np.isfinite(d):
+            return -1e6  # harsh penalty for invalid predictions
+        return float(-np.log(EPS + d))
+
+    # Optionally blend ENV closeness as a small tie-breaker so candidates
+    # without a learned model don't get starved completely.
+    W_MODEL = 1.0
+    W_ENV   = 0.10
+    # ------------------------------------------------------------------------
+
+    t_init = time.time()
+
+    # 4) Initialize candidate states & bookkeeping
+    # We keep a single branch per candidate; no splitting.
+    candidates = {}
+    scores = {}
+    for fm_key in candidate_fault_modes.keys():
+        candidates[fm_key] = {
+            "state": S0,          # current candidate state
+            "actions": [],        # policy actions taken so far (for trace)
+        }
+        scores[fm_key] = 0.0
+
+    init_sec = time.time() - t_init
+    diag_sec = 0.0
+    G_max = len(candidates)
+
+    # 5) Roll forward over time
+    for i in range(1, len(observations)):
+        step_start = time.time()
+        obs_i = observations[i]
+
+        for fm_key, info in candidates.items():
+            S_curr = info["state"]
+
+            # policy action from current state
+            S_arr = np.array(S_curr[0] if isinstance(S_curr, tuple) else S_curr).flatten()
+            a, _ = policy.predict(refiners[domain_name](S_arr), deterministic=DETERMINISTIC)
+            a = int(a.item()) if isinstance(a, np.ndarray) else int(a)
+
+            # ENV step from S_curr (shared dynamics; still useful as a weak signal)
+            simulator.set_state(S_curr)
+            S_env, _, _, _, _ = simulator.step(a)
+
+            # Learned MODEL step if we have one for this (fault, action)
+            S_model = None
+            if fm_key in models_by_fault and a in models_by_fault[fm_key]:
+                try:
+                    S_model = models_by_fault[fm_key][a].predict(S_arr).flatten()
+                except Exception:
+                    S_model = None  # be robust to bad models
+
+            # Score update if we have an observation
+            if obs_i is not None:
+                d_env = norm_l2(S_env,   obs_i)
+                inc   = W_ENV * score_from_distance(d_env)
+
+                if S_model is not None:
+                    d_mod = norm_l2(S_model, obs_i)
+                    inc  += W_MODEL * score_from_distance(d_mod)
+
+                    # choose the state to carry forward: whichever matched obs_i better
+                    next_state = S_model if d_mod <= d_env else S_env
+                else:
+                    next_state = S_env
+
+                scores[fm_key] += inc
+                info["actions"].append(a)
+                info["state"] = next_state
+
+                if debug_print:
+                    tag = "model+env" if S_model is not None else "env-only"
+                    if S_model is not None:
+                        print(f"[t={i}][{fm_key}] a={a} d_env={d_env:.4f} d_mod={d_mod:.4f} inc={inc:.4f} ({tag}) score={scores[fm_key]:.4f}")
+                    else:
+                        print(f"[t={i}][{fm_key}] a={a} d_env={d_env:.4f} inc={inc:.4f} ({tag}) score={scores[fm_key]:.4f}")
+
+            else:
+                # Hidden step: just propagate with ENV (or MODEL if you prefer)
+                info["actions"].append(a)
+                info["state"] = S_env
+                if debug_print:
+                    print(f"[t={i}][{fm_key}] hidden step → advance with ENV")
+
+        diag_sec += time.time() - step_start
+        G_max = max(G_max, len(candidates))
+
+    # 6) Pick the winner (highest score)
+    ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+    winner_key, winner_score = ranked[0]
+
+    # 7) Build JSON-safe output
+    diagnoses = {}
+    for fm_key, info in candidates.items():
+        diagnoses[fm_key] = {
+            "score": float(scores[fm_key]),
+            "actions": list(map(int, info["actions"])),
+            "last_state": to_list(info["state"]),
+            "is_winner": bool(fm_key == winner_key),
+        }
+
+    return {
+        "diagnoses": diagnoses,            # per-candidate info (JSON-safe)
+        "winner": {"key": winner_key, "score": float(winner_score)},
+        "ranking": [{"key": k, "score": float(s)} for k, s in ranked],
+        "init_rt_sec": init_sec,
+        "init_rt_ms": init_sec * 1000.0,
+        "diag_rt_sec": diag_sec,
+        "diag_rt_ms": diag_sec * 1000.0,
+        "totl_rt_sec": init_sec + diag_sec,
+        "totl_rt_ms": (init_sec + diag_sec) * 1000.0,
+        "G_max_size": G_max,
+    }
+
+
+
 
 diagnosers = {
     # new fault models
@@ -2043,5 +2353,6 @@ diagnosers = {
     "SIFU6": SIFU6,
     "SIFU7": SIFU7,
     "SIFU8": SIFU8,
-    "SIFM": SIFM
+    "SIFM": SIFM,
+    "SIFM_scored":SIFM_scored
 }

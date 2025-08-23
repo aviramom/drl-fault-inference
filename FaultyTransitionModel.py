@@ -184,3 +184,15 @@ class FaultyTransitionModel:
 
     def __repr__(self):
         return f"FaultyTransitionModel(fault_mode={self.fault_mode}, model_type={self.model_type}, MSE={self.mse:.4f})"
+
+
+    def get_metadata_string(self):
+        """
+        Returns a string summarizing the model name and training data size.
+        """
+        num_samples, input_dim = self.X.shape
+        output_dim = self.Y.shape[1] if self.Y.ndim > 1 else 1
+        return (f"🧠 Model Type: {self.model_type}, "
+                f"Fault Mode: {self.fault_mode}, "
+                f"Training Samples: {num_samples}, "
+                f"Input Dim: {input_dim}, Output Dim: {output_dim}")

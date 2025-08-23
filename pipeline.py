@@ -202,7 +202,7 @@ def run_experimental_setup_new(arguments, render_mode, debug_print):
     ml_model_name = param_dict['ml_model_name']
 
     # ### maximum length of the execution for the experiment (each experiment file has one associated length)
-    max_exec_len = 10
+    max_exec_len = 50
 
     # ### preparing index for experimental execution tracing
     # W_instance_number = (len(param_dict['possible_fault_mode_names']) * len(param_dict['fault_probabilities']) * len(param_dict['instance_seeds']) * len(param_dict['percent_visible_states']) * len(param_dict['num_candidate_fault_modes'][:1]))
@@ -292,6 +292,33 @@ def run_experimental_setup_new(arguments, render_mode, debug_print):
                             #     output = rank_diagnoses_SIFSD(raw_output, registered_actions, debug_print)
                             # else:
                             #     output = rank_diagnoses_SFM(raw_output, registered_actions, debug_print)
+                            # print(raw_output)
+
+                            # Print clean diagnosis summary
+                            print("🧪 Diagnosis Summary "+f'{diagnoser_name}')
+                            print("──────────────────────────────")
+                            print(f"🟢 True Fault Mode : {execution_fault_mode_name}")
+                            diagnoses = list(raw_output.get('diagnoses', {}).keys())
+
+                            if not diagnoses:
+                                print("🔴 Diagnoser returned no hypotheses.")
+                            else:
+                                print(f"🎯 Diagnosed Modes : {diagnoses}")
+                                true_key_prefix = str(execution_fault_mode_name)
+                                match_found = any(diagnosis.startswith(true_key_prefix) for diagnosis in diagnoses)
+
+                                if match_found:
+                                    print("✅ True fault mode FOUND in diagnoses!")
+                                else:
+                                    print("❌ True fault mode NOT found.")
+
+                            # Optional: Show best guess
+                            if len(diagnoses) == 1:
+                                print(f"🥇 Only Hypothesis: {diagnoses[0]}")
+                            elif diagnoses:
+                                print(f"🥇 First Hypothesis: {diagnoses[0]}")
+
+                            print("──────────────────────────────\n")
 
                             output=raw_output
                             # ### preparing record for writing to excel file

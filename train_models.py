@@ -21,8 +21,10 @@ from persist_models import *
 
 if __name__ == '__main__':
     # ======= CONFIGURATION ========
-    domains_files = ['e2000_Acrobot.json', 'e3000_CartPole.json',
+    domains_files1 = ['e2000_Acrobot.json','e3000_CartPole.json',
                      'e6000_FrozenLake.json', 'e4000_MountainCar.json', 'e5000_Taxi.json']
+    domains_files = ['e2000_Acrobot.json','e3000_CartPole.json','e4000_MountainCar.json',
+                     'e5000_Taxi.json','e6000_FrozenLake.json']
 
     debug_mode = False
     render_mode = 'rgb_array'   # "human", "rgb_array"
@@ -31,7 +33,8 @@ if __name__ == '__main__':
     fault_probability = 1  # always inject fault
     fault_mode_generator = FaultModeGeneratorDiscrete()
 
-
+    metadata_string=''
+    #train models for all domains and save them!!!!############
     for domain in domains_files:
 
         # ======= LOAD PARAMETERS ========
@@ -53,8 +56,15 @@ if __name__ == '__main__':
                                              max_exec_len,
                                              model_type)
 
+        for fm_dict in models.values():
+            for model in fm_dict.values():
+                metadata_string += f'\n Domain: {domain_name} | {model.get_metadata_string()}'
 
         save_models_by_fault(models, domain_name,model_name)
+
+
+    print(metadata_string)
+
     # for fault_mode, action in models.items():
     #     for faulty_action, model in action.items():
     #         print(f"\n📊 Fault Mode: {model.fault_mode}")
