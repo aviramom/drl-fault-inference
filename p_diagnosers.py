@@ -1915,25 +1915,22 @@ def SIFM(debug_print, render_mode, instance_seed, ml_model_name, domain_name, ob
             fm_key, acts, S_curr = G[key]
 
             # policy action
-            S_arr = np.array(S_curr[0] if isinstance(S_curr, tuple) else S_curr).flatten()
+            #S_arr = np.array(S_curr[0] if isinstance(S_curr, tuple) else S_curr).flatten()
+            # ✅ new:
+            S_arr = np.asarray(S_curr, dtype=np.float32).ravel()  # (obs_dim,)
 
             ##### added to cartpole######
             S_refined = refiners[domain_name](S_arr)
 
-            # # ✅ ONLY reshape if shape is 1D
-            # if isinstance(S_refined, np.ndarray) and S_refined.ndim == 1:
-            #     S_refined = S_refined.reshape(1, -1)
-            # print("fm_key:", fm_key)
-            # print("S_arr shape:", S_arr.shape)
-            # print("S_refined before reshape:", S_refined, "shape:", np.array(S_refined).shape)
-            # print("before prediction")
+
             a, _ = policy.predict(S_refined, deterministic=DETERMINISTIC)
-            # print("after prediction")
+
             a = int(a.item()) if isinstance(a, np.ndarray) else int(a)
 
             # ENV step from S_curr
             simulator.set_state(S_curr)
             S_env, _, _, _, _ = simulator.step(a)
+
 
             # MODEL step if exists
             S_model = None
@@ -2043,6 +2040,30 @@ def SIFM(debug_print, render_mode, instance_seed, ml_model_name, domain_name, ob
         "totl_rt_ms": (init_sec + diag_sec) * 1000,
         "G_max_size": G_max
     }
+##########helper#############
+def _coerce_action(env, a):
+    import numpy as np, gym
+    # Discrete → Python int
+    if isinstance(env.action_space, gym.spaces.Discrete):
+        if isinstance(a, np.ndarray):
+            if a.size != 1:
+                raise ValueError(f"Discrete action array must have size 1, got shape {a.shape}")
+            a = a.item()
+        elif isinstance(a, (list, tuple)):
+            if len(a) != 1:
+                raise ValueError(f"Discrete action list/tuple must have len 1, got {len(a)}")
+            a = a[0]
+        return int(a)
+    # Box → float32 vector, clipped to bounds
+    elif isinstance(env.action_space, gym.spaces.Box):
+        a = np.asarray(a, dtype=np.float32).ravel()
+        low, high = env.action_space.low, env.action_space.high
+        if low is not None and high is not None:
+            a = np.clip(a, low, high)
+        return a
+    else:
+        raise TypeError(f"Unsupported action space: {type(env.action_space).__name__}")
+
 
 
 def SIFU8M(debug_print, render_mode, instance_seed, ml_model_name, domain_name, observations, candidate_fault_modes):

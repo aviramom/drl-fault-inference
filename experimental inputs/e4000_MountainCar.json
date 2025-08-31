@@ -16,6 +16,6 @@
   "fault_probabilities": [0.2, 0.4, 0.6, 0.8, 1.0],
   "instance_seeds": [1],
   "percent_visible_states": [100],
-  "num_candidate_fault_modes": [3],
-  "diagnoser_names": ["SIFM"]
+  "num_candidate_fault_modes": [10],
+  "diagnoser_names": ["SIFM","SIFU5"]
 }
