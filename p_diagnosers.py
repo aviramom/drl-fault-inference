@@ -1928,7 +1928,10 @@ def SIFM(debug_print, render_mode, instance_seed, ml_model_name, domain_name, ob
             a = int(a.item()) if isinstance(a, np.ndarray) else int(a)
 
             # ENV step from S_curr
-            simulator.set_state(S_curr)
+            if domain_name == "Taxi_v3":
+                simulator.set_state(S_refined)
+            else:
+                simulator.set_state(S_curr)
             S_env, _, _, _, _ = simulator.step(a)
 
 
