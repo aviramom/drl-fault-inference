@@ -194,6 +194,7 @@ def run_experimental_setup_new(arguments, render_mode, debug_print):
 
     # ### prepare the records database to be written to the excel file
     records = []
+    runs_rows = []
 
     # ### the domain name of this experiment (each experiment file has only one associated domain)
     domain_name = param_dict['domain_name']
@@ -321,6 +322,25 @@ def run_experimental_setup_new(arguments, render_mode, debug_print):
                             print("──────────────────────────────\n")
 
                             output=raw_output
+                            ################################## new ######################3
+
+                            diag_row = _row_from_output(
+                                domain_name=domain_name,
+                                seed=instance_seed,
+                                fault_probability=fault_probability,
+                                percent_visible_states=percent_visible_states,
+                                num_candidate_fault_modes=num_candidate_fault_modes,
+                                diagnoser_name=diagnoser_name,
+                                true_fault=execution_fault_mode_name,
+                                raw_output=raw_output
+                            )
+                            # keep a list in the outer scope
+                            try:
+                                runs_rows.append(diag_row)
+                            except NameError:
+                                runs_rows = [diag_row]
+
+                            ##################################### new ####################3
                             # ### preparing record for writing to excel file
                             record = prepare_record(domain_name, debug_print, execution_fault_mode_name, instance_seed, fault_probability, percent_visible_states, param_dict['possible_fault_mode_names'], num_candidate_fault_modes,
                                                     render_mode, ml_model_name, max_exec_len, trajectory_execution, faulty_actions_indices, registered_actions, observations, observation_mask, masked_observations,
@@ -337,5 +357,121 @@ def run_experimental_setup_new(arguments, render_mode, debug_print):
 
     # ### write records to an excel file
     write_records_to_excel(records, experimental_file_name.split(".")[0])
-
+    ########################### new #############################
+    write_comparison_excel(runs_rows, f"experimental results/{experimental_file_name.split('.')[0]}__compare.xlsx")
+    ########################### new #############################
     print(9)
+
+##########################################new code#########################################
+def _base_mode(s: str) -> str:
+    """turns '[0,0,2,3]_0' -> '[0,0,2,3]'"""
+    if s is None: return None
+    j = s.find(']')
+    return s[:j+1] if j >= 0 else s
+
+def _row_from_output(domain_name, seed, fault_probability, percent_visible_states,
+                     num_candidate_fault_modes, diagnoser_name, true_fault, raw_output):
+    diags_dict = raw_output.get("diagnoses", {}) or {}
+    diag_keys = list(diags_dict.keys())
+    diag_bases = [_base_mode(k) for k in diag_keys]
+    contains_true = _base_mode(true_fault) in set(diag_bases)
+    predicted_first = _base_mode(diag_keys[0]) if diag_keys else None
+    return {
+        "domain": domain_name,
+        "seed": seed,
+        "fault_probability": float(fault_probability),
+        "percent_visible": int(percent_visible_states),
+        "num_candidates": int(num_candidate_fault_modes),
+        "diagnoser": diagnoser_name,
+        "true_fault": _base_mode(true_fault),
+        "predicted_all": diag_bases,
+        "contains_true": contains_true,
+        "num_final_hypotheses": len(diag_keys),
+        "G_max_size": int(raw_output.get("G_max_size", 0) or 0),
+        "init_ms": float(raw_output.get("init_rt_ms", 0.0) or 0.0),
+        "diag_ms": float(raw_output.get("diag_rt_ms", 0.0) or 0.0),
+        "total_ms": float(raw_output.get("totl_rt_ms", 0.0) or 0.0),
+    }
+
+def write_comparison_excel(runs_rows, excel_path):
+    import xlsxwriter
+
+    # ---- Sheet 1: runs (show ALL predictions in one cell) ----
+    columns = [{"header": h} for h in [
+        "domain","seed","fault_probability","percent_visible","num_candidates",
+        "diagnoser","true_fault","predicted_all","contains_true",
+        "num_final_hypotheses","G_max_size","init_ms","diag_ms","total_ms"
+    ]]
+
+    def join_preds(r):
+        preds = r.get("predicted_all") or []
+        return " | ".join(map(str, preds))
+
+    runs_data = [[
+        r["domain"], r["seed"], r["fault_probability"], r["percent_visible"], r["num_candidates"],
+        r["diagnoser"], r["true_fault"], join_preds(r), r["contains_true"],
+        r["num_final_hypotheses"], r["G_max_size"], r["init_ms"], r["diag_ms"], r["total_ms"]
+    ] for r in runs_rows]
+
+    wb = xlsxwriter.Workbook(excel_path)
+    ws_runs = wb.add_worksheet("runs")
+    ws_runs.add_table(0, 0, len(runs_data), len(columns)-1, {"data": runs_data, "columns": columns})
+
+    # ---- Sheet 2: runs_flat (one row per hypothesis with rank + is_true) ----
+    ws_flat = wb.add_worksheet("runs_flat")
+    flat_headers = [{"header": h} for h in [
+        "domain","seed","diagnoser","true_fault","candidate","rank","is_true",
+        "fault_probability","percent_visible","num_candidates",
+        "G_max_size","init_ms","diag_ms","total_ms"
+    ]]
+    flat_rows = []
+    for r in runs_rows:
+        preds = r.get("predicted_all") or []
+        for rank, cand in enumerate(preds, start=1):
+            flat_rows.append([
+                r["domain"], r["seed"], r["diagnoser"], r["true_fault"],
+                cand, rank, (cand == r["true_fault"]),
+                r["fault_probability"], r["percent_visible"], r["num_candidates"],
+                r["G_max_size"], r["init_ms"], r["diag_ms"], r["total_ms"],
+            ])
+    ws_flat.add_table(0, 0, len(flat_rows), len(flat_headers)-1,
+                      {"data": flat_rows, "columns": flat_headers})
+
+    # ---- Summaries (unchanged) ----
+    by_diag, by_diag_domain = {}, {}
+    for r in runs_rows:
+        d = r["diagnoser"]; dom = r["domain"]
+        s = by_diag.setdefault(d, {"n":0,"hits":0,"hyp_sum":0,"tot_ms":0.0})
+        s["n"] += 1
+        s["hits"] += 1 if r["contains_true"] else 0
+        s["hyp_sum"] += r["num_final_hypotheses"]
+        s["tot_ms"] += r["total_ms"]
+        bd = by_diag_domain.setdefault((d,dom), {"n":0,"hits":0})
+        bd["n"] += 1
+        bd["hits"] += 1 if r["contains_true"] else 0
+
+    ws_sum = wb.add_worksheet("summary_by_diagnoser")
+    ws_sum.write_row(0,0,["diagnoser","runs","top1_acc","avg_hyp_count","avg_total_ms"])
+    r_i = 1
+    for d, s in sorted(by_diag.items()):
+        runs = s["n"]
+        acc = (s["hits"]/runs) if runs else 0.0
+        hyp = (s["hyp_sum"]/runs) if runs else 0.0
+        avg_ms = (s["tot_ms"]/runs) if runs else 0.0
+        ws_sum.write_row(r_i,0,[d, runs, acc, hyp, avg_ms]); r_i += 1
+
+    ws_dom = wb.add_worksheet("acc_by_domain")
+    headers = ["domain"] + sorted({d for (_diag,d) in by_diag_domain})
+    ws_dom.write_row(0,0,headers)
+    doms = sorted({d for (_diag,d) in by_diag_domain})
+    mat = { dom: {} for dom in doms }
+    for (diag,dom), s in by_diag_domain.items():
+        acc = (s["hits"]/s["n"]) if s["n"] else 0.0
+        mat[dom][diag] = acc
+    row = 1
+    for dom in doms:
+        ws_dom.write_row(row,0,[dom] + [mat[dom].get(dname, None) for dname in headers[1:]])
+        row += 1
+
+    wb.close()
+
