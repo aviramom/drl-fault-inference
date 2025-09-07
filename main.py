@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
         args = None
         if len(sys.argv) != 2:
-            args = [sys.argv[0],"e5000_Taxi.json" ]
+            args = [sys.argv[0],"e6000_FrozenLake.json" ]
         else:
             args = sys.argv
 
