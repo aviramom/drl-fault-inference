@@ -15,6 +15,7 @@ from Faulty_Data_Extractor import get_faulty_data, get_augmented_faulty_data, ge
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import train_test_split
 from utils import *
+from PolyDeltaModel import *
 
 from sklearn.metrics import mean_squared_error
 import numpy as np
@@ -267,13 +268,16 @@ def train_models_for_fault_modes(
                 print(f"⚠️ Skipping faulty action {faulty_action} in mode {fault_mode} due to insufficient data.")
                 continue
 
-            # Train model
-            model = FaultyTransitionModel(fault_mode=f"{fault_mode}::a={faulty_action}", data=train_data_filtered,
-                                          model_type=model_type)
+            if model_type=='linear':
+                # Train model
+                model = FaultyTransitionModel(fault_mode=f"{fault_mode}::a={faulty_action}", data=train_data_filtered,
+                                              model_type=model_type)
+            else:
+                model =PolyDeltaModel(fault_mode=f"{fault_mode}::a={faulty_action}").fit(train_data_filtered)
             models_by_fault[fault_mode][faulty_action] = model
 
             # Evaluate model
-            evaluate_model_on_testset(model, test_data_filtered)
+            # evaluate_model_on_testset(model, test_data_filtered)
 
 
     print("\n✅ All models trained and evaluated.")

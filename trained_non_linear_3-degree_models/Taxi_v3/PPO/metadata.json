@@ -1,0 +1,18 @@
+{
+  "domain_name": "Taxi_v3",
+  "ml_model_name": "PPO",
+  "saved_at": "2025-09-11T15:31:51.610535Z",
+  "fault_modes": [
+    "[0,0,2,3,4,5]",
+    "[0,2,2,3,4,5]",
+    "[0,1,2,3,2,5]",
+    "[0,1,2,3,0,5]",
+    "[0,1,2,3,4,0]",
+    "[0,2,1,3,4,5]",
+    "[0,3,2,1,4,5]",
+    "[0,4,2,3,1,5]",
+    "[0,5,2,3,4,1]",
+    "[1,0,2,3,4,5]"
+  ],
+  "schema": "models_by_fault[fault_mode_str][action] -> sklearn model wrapped by FaultyTransitionModel"
+}

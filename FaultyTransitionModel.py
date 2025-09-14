@@ -195,4 +195,5 @@ class FaultyTransitionModel:
         return (f"🧠 Model Type: {self.model_type}, "
                 f"Fault Mode: {self.fault_mode}, "
                 f"Training Samples: {num_samples}, "
-                f"Input Dim: {input_dim}, Output Dim: {output_dim}")
+                f"Input Dim: {input_dim}, Output Dim: {output_dim}"
+                f"MSE: {self.mse:.4f}")

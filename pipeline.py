@@ -358,7 +358,7 @@ def run_experimental_setup_new(arguments, render_mode, debug_print):
     # ### write records to an excel file
     write_records_to_excel(records, experimental_file_name.split(".")[0])
     ########################### new #############################
-    write_comparison_excel(runs_rows, f"experimental results/{experimental_file_name.split('.')[0]}__compare.xlsx")
+    write_comparison_excel(runs_rows, f"non-linear 3-degree regression models experimental results/{experimental_file_name.split('.')[0]}__compare.xlsx")
     ########################### new #############################
     print(9)
 

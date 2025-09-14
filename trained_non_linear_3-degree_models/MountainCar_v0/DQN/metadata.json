@@ -1,0 +1,18 @@
+{
+  "domain_name": "MountainCar_v0",
+  "ml_model_name": "DQN",
+  "saved_at": "2025-09-11T15:28:16.372578Z",
+  "fault_modes": [
+    "[1,1,2]",
+    "[0,1,1]",
+    "[0,2,1]",
+    "[1,0,2]",
+    "[1,2,0]",
+    "[2,0,1]",
+    "[2,1,0]",
+    "[0,0,0]",
+    "[1,1,1]",
+    "[2,2,2]"
+  ],
+  "schema": "models_by_fault[fault_mode_str][action] -> sklearn model wrapped by FaultyTransitionModel"
+}

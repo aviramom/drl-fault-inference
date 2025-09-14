@@ -17,9 +17,10 @@ if __name__ == '__main__':
         #           "e6000_FrozenLake.json"
         #           "e7000_Breakout.json"
         #
+        # domain = "e6000_FrozenLake.json"
         domains = ["e2000_Acrobot.json", "e3000_CartPole.json", "e4000_MountainCar.json",
                    "e5000_Taxi.json", "e6000_FrozenLake.json"]
-        for domain in domains:
+        for domain  in domains:
             args = None
             if len(sys.argv) != 2:
                 args = [sys.argv[0],domain ]

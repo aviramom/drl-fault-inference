@@ -5,7 +5,7 @@ from pathlib import Path
 import joblib
 from datetime import datetime
 
-def save_models_by_fault(models_by_fault, domain_name, ml_model_name, save_dir="trained_models"):
+def save_models_by_fault(models_by_fault, domain_name, ml_model_name, save_dir="trained_linear_models"):
     """
     models_by_fault: dict[fault_mode_str][action] -> FaultyTransitionModel (sklearn inside)
     """
@@ -33,7 +33,7 @@ def save_models_by_fault(models_by_fault, domain_name, ml_model_name, save_dir="
 
     print(f"✅ Saved models under: {root}")
 
-def load_models_by_fault(domain_name, ml_model_name, save_dir="trained_models"):
+def load_models_by_fault(domain_name, ml_model_name, save_dir="trained_non_linear_3-degree_models"):
     root = Path(save_dir) / domain_name / ml_model_name
     if not root.exists():
         raise FileNotFoundError(f"No saved models at {root}")
