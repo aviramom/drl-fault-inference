@@ -1,17 +1,17 @@
 {
   "domain_name": "Acrobot_v1",
   "ml_model_name": "PPO",
-  "saved_at": "2025-08-23T12:50:12.524122Z",
+  "saved_at": "2025-09-15T07:44:15.051092Z",
   "fault_modes": [
-    "[1,1,2]",
+    "[0,0,0]",
     "[0,1,1]",
     "[0,2,1]",
     "[1,0,2]",
+    "[1,1,1]",
+    "[1,1,2]",
     "[1,2,0]",
     "[2,0,1]",
     "[2,1,0]",
-    "[0,0,0]",
-    "[1,1,1]",
     "[2,2,2]"
   ],
   "schema": "models_by_fault[fault_mode_str][action] -> sklearn model wrapped by FaultyTransitionModel"

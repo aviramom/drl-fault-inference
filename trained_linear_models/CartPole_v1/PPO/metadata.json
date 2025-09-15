@@ -1,11 +1,11 @@
 {
   "domain_name": "CartPole_v1",
   "ml_model_name": "PPO",
-  "saved_at": "2025-08-23T12:50:14.800595Z",
+  "saved_at": "2025-09-15T07:44:15.081704Z",
   "fault_modes": [
     "[0,0]",
-    "[1,1]",
-    "[1,0]"
+    "[1,0]",
+    "[1,1]"
   ],
   "schema": "models_by_fault[fault_mode_str][action] -> sklearn model wrapped by FaultyTransitionModel"
 }

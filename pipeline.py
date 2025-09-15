@@ -2,6 +2,7 @@ import copy
 import math
 import random
 import json
+import time
 from datetime import datetime
 from p_diagnosers import diagnosers
 import numpy as np
@@ -321,7 +322,7 @@ def run_experimental_setup_new(arguments, render_mode, debug_print):
 
                             print("──────────────────────────────\n")
 
-                            output=raw_output
+                            ranked_output = rank_diagnoses_SFM(raw_output, registered_actions, debug_print)
                             ################################## new ######################3
 
                             diag_row = _row_from_output(
@@ -332,7 +333,7 @@ def run_experimental_setup_new(arguments, render_mode, debug_print):
                                 num_candidate_fault_modes=num_candidate_fault_modes,
                                 diagnoser_name=diagnoser_name,
                                 true_fault=execution_fault_mode_name,
-                                raw_output=raw_output
+                                raw_output=ranked_output
                             )
                             # keep a list in the outer scope
                             try:
@@ -344,7 +345,7 @@ def run_experimental_setup_new(arguments, render_mode, debug_print):
                             # ### preparing record for writing to excel file
                             record = prepare_record(domain_name, debug_print, execution_fault_mode_name, instance_seed, fault_probability, percent_visible_states, param_dict['possible_fault_mode_names'], num_candidate_fault_modes,
                                                     render_mode, ml_model_name, max_exec_len, trajectory_execution, faulty_actions_indices, registered_actions, observations, observation_mask, masked_observations,
-                                                    candidate_fault_modes, output, diagnoser_name, longest_hidden_state_sequence)
+                                                    candidate_fault_modes, ranked_output, diagnoser_name, longest_hidden_state_sequence)
 
                             ################# to here #############################
                             # record = prepare_record(domain_name, debug_print, execution_fault_mode_name, instance_seed, fault_probability, percent_visible_states, param_dict['possible_fault_mode_names'], num_candidate_fault_modes,
@@ -371,11 +372,11 @@ def _base_mode(s: str) -> str:
 
 def _row_from_output(domain_name, seed, fault_probability, percent_visible_states,
                      num_candidate_fault_modes, diagnoser_name, true_fault, raw_output):
-    diags_dict = raw_output.get("diagnoses", {}) or {}
-    diag_keys = list(diags_dict.keys())
-    diag_bases = [_base_mode(k) for k in diag_keys]
-    contains_true = _base_mode(true_fault) in set(diag_bases)
-    predicted_first = _base_mode(diag_keys[0]) if diag_keys else None
+    # from ranker: diagnoses is a list; ranks is a list
+    diag_list = list(raw_output.get("diagnoses", []) or [])
+    score_list = list(raw_output.get("ranks", []) or [])
+
+    contains_true = _base_mode(true_fault) in set(diag_list)
     return {
         "domain": domain_name,
         "seed": seed,
@@ -384,9 +385,10 @@ def _row_from_output(domain_name, seed, fault_probability, percent_visible_state
         "num_candidates": int(num_candidate_fault_modes),
         "diagnoser": diagnoser_name,
         "true_fault": _base_mode(true_fault),
-        "predicted_all": diag_bases,
+        "predicted_all": diag_list,
+        "predicted_scores": score_list,
         "contains_true": contains_true,
-        "num_final_hypotheses": len(diag_keys),
+        "num_final_hypotheses": len(diag_list),
         "G_max_size": int(raw_output.get("G_max_size", 0) or 0),
         "init_ms": float(raw_output.get("init_rt_ms", 0.0) or 0.0),
         "diag_ms": float(raw_output.get("diag_rt_ms", 0.0) or 0.0),
@@ -394,12 +396,17 @@ def _row_from_output(domain_name, seed, fault_probability, percent_visible_state
     }
 
 def write_comparison_excel(runs_rows, excel_path):
-    import xlsxwriter
+    import os, xlsxwriter
 
-    # ---- Sheet 1: runs (show ALL predictions in one cell) ----
+    # ensure output folder exists
+    out_dir = os.path.dirname(excel_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+
+    # ---------- Sheet 1: runs (all predictions + scores in single cells) ----------
     columns = [{"header": h} for h in [
         "domain","seed","fault_probability","percent_visible","num_candidates",
-        "diagnoser","true_fault","predicted_all","contains_true",
+        "diagnoser","true_fault","predicted_all","predicted_scores","contains_true",
         "num_final_hypotheses","G_max_size","init_ms","diag_ms","total_ms"
     ]]
 
@@ -407,63 +414,70 @@ def write_comparison_excel(runs_rows, excel_path):
         preds = r.get("predicted_all") or []
         return " | ".join(map(str, preds))
 
+    def join_scores(r):
+        scrs = r.get("predicted_scores") or []
+        return " | ".join(f"{s:.3f}" for s in scrs)
+
     runs_data = [[
         r["domain"], r["seed"], r["fault_probability"], r["percent_visible"], r["num_candidates"],
-        r["diagnoser"], r["true_fault"], join_preds(r), r["contains_true"],
+        r["diagnoser"], r["true_fault"], join_preds(r), join_scores(r), r["contains_true"],
         r["num_final_hypotheses"], r["G_max_size"], r["init_ms"], r["diag_ms"], r["total_ms"]
     ] for r in runs_rows]
 
     wb = xlsxwriter.Workbook(excel_path)
     ws_runs = wb.add_worksheet("runs")
-    ws_runs.add_table(0, 0, len(runs_data), len(columns)-1, {"data": runs_data, "columns": columns})
+    ws_runs.add_table(0, 0, len(runs_data), len(columns)-1,
+                      {"data": runs_data, "columns": columns})
 
-    # ---- Sheet 2: runs_flat (one row per hypothesis with rank + is_true) ----
+    # ---------- Sheet 2: runs_flat (one row per hypothesis with position + score) ----------
     ws_flat = wb.add_worksheet("runs_flat")
     flat_headers = [{"header": h} for h in [
-        "domain","seed","diagnoser","true_fault","candidate","rank","is_true",
+        "domain","seed","diagnoser","true_fault","candidate","position","score","is_true",
         "fault_probability","percent_visible","num_candidates",
         "G_max_size","init_ms","diag_ms","total_ms"
     ]]
     flat_rows = []
     for r in runs_rows:
-        preds = r.get("predicted_all") or []
-        for rank, cand in enumerate(preds, start=1):
+        preds  = r.get("predicted_all") or []
+        scores = r.get("predicted_scores") or []
+        for pos, (cand, sc) in enumerate(zip(preds, scores), start=1):
             flat_rows.append([
                 r["domain"], r["seed"], r["diagnoser"], r["true_fault"],
-                cand, rank, (cand == r["true_fault"]),
+                cand, pos, float(sc), (cand == r["true_fault"]),
                 r["fault_probability"], r["percent_visible"], r["num_candidates"],
                 r["G_max_size"], r["init_ms"], r["diag_ms"], r["total_ms"],
             ])
     ws_flat.add_table(0, 0, len(flat_rows), len(flat_headers)-1,
                       {"data": flat_rows, "columns": flat_headers})
 
-    # ---- Summaries (unchanged) ----
+    # ---------- Summaries ----------
     by_diag, by_diag_domain = {}, {}
     for r in runs_rows:
         d = r["diagnoser"]; dom = r["domain"]
         s = by_diag.setdefault(d, {"n":0,"hits":0,"hyp_sum":0,"tot_ms":0.0})
-        s["n"] += 1
-        s["hits"] += 1 if r["contains_true"] else 0
-        s["hyp_sum"] += r["num_final_hypotheses"]
+        s["n"]      += 1
+        s["hits"]   += 1 if r["contains_true"] else 0
+        s["hyp_sum"]+= r["num_final_hypotheses"]
         s["tot_ms"] += r["total_ms"]
         bd = by_diag_domain.setdefault((d,dom), {"n":0,"hits":0})
-        bd["n"] += 1
+        bd["n"]    += 1
         bd["hits"] += 1 if r["contains_true"] else 0
 
     ws_sum = wb.add_worksheet("summary_by_diagnoser")
     ws_sum.write_row(0,0,["diagnoser","runs","top1_acc","avg_hyp_count","avg_total_ms"])
     r_i = 1
     for d, s in sorted(by_diag.items()):
-        runs = s["n"]
-        acc = (s["hits"]/runs) if runs else 0.0
-        hyp = (s["hyp_sum"]/runs) if runs else 0.0
-        avg_ms = (s["tot_ms"]/runs) if runs else 0.0
-        ws_sum.write_row(r_i,0,[d, runs, acc, hyp, avg_ms]); r_i += 1
+        runs  = s["n"]
+        acc   = (s["hits"]/runs) if runs else 0.0
+        hyp   = (s["hyp_sum"]/runs) if runs else 0.0
+        avgms = (s["tot_ms"]/runs) if runs else 0.0
+        ws_sum.write_row(r_i,0,[d, runs, acc, hyp, avgms]); r_i += 1
 
     ws_dom = wb.add_worksheet("acc_by_domain")
-    headers = ["domain"] + sorted({d for (_diag,d) in by_diag_domain})
+    headers = ["domain"] + sorted({d for (_diag, d) in by_diag_domain})
     ws_dom.write_row(0,0,headers)
-    doms = sorted({d for (_diag,d) in by_diag_domain})
+    doms = sorted({d for (_diag, d) in by_diag_domain})
+    # build diag->domain->acc map
     mat = { dom: {} for dom in doms }
     for (diag,dom), s in by_diag_domain.items():
         acc = (s["hits"]/s["n"]) if s["n"] else 0.0
@@ -475,3 +489,156 @@ def write_comparison_excel(runs_rows, excel_path):
 
     wb.close()
 
+
+def rank_diagnoses_SFM1(raw_output, registered_actions, debug_print):
+    ranking_start_time = time.time()
+    G = raw_output['diagnoses']
+    diagnoses = []
+    diagnosis_actions = []
+    ranks = []
+
+    for key_j in G:
+        actions_j = G[key_j][1]
+        num_actual_faults = 0
+        for i in range(len(actions_j)):
+            if actions_j[i] is not None:
+                if registered_actions[i] != actions_j[i]:
+                    num_actual_faults += 1
+        num_potential_faults = 0
+        for i in range(len(actions_j)):
+            if actions_j[i] is not None:
+                a = registered_actions[i]
+                fa = G[key_j][0](a)
+                if a != fa:
+                    num_potential_faults += 1
+
+        if debug_print:
+            print(f'num_actual_faults / num_potential_faults: {num_actual_faults} / {num_potential_faults}')
+
+        if num_potential_faults == 0:
+            rank = 1.0
+        else:
+            rank = num_actual_faults * 1.0 / num_potential_faults
+
+        k_j = key_j.split('_')[0]
+        if k_j not in diagnoses:
+            diagnoses.append(k_j)
+            diagnosis_actions.append(actions_j)
+            ranks.append(rank)
+
+    zipped_lists = zip(diagnoses, diagnosis_actions, ranks)
+    sorted_zipped_lists = sorted(zipped_lists, key=lambda x: x[-1], reverse=True)
+    diagnoses, diagnosis_actions, ranks = zip(*sorted_zipped_lists)
+
+    ranking_end_time = time.time()
+    ranking_runtime_sec = ranking_end_time - ranking_start_time
+    ranking_runtime_ms = ranking_runtime_sec * 1000
+
+    output = {
+        "diagnoses": diagnoses,
+        "init_rt_sec": raw_output["init_rt_sec"],
+        "init_rt_ms": raw_output["init_rt_ms"],
+        "diag_rt_sec": raw_output["diag_rt_sec"],
+        "diag_rt_ms": raw_output["diag_rt_ms"],
+        "totl_rt_sec": raw_output["totl_rt_sec"],
+        "totl_rt_ms": raw_output["totl_rt_ms"],
+        "G_max_size": raw_output['G_max_size'],
+        "diagnosis_actions": diagnosis_actions,
+        "ranks": ranks,
+        "rank_rt_sec": ranking_runtime_sec,
+        "rank_rt_ms": ranking_runtime_ms,
+        "cmpl_rt_sec": raw_output["totl_rt_sec"] + ranking_runtime_sec,
+        "cmpl_rt_ms": raw_output["totl_rt_ms"] + ranking_runtime_ms
+    }
+
+    return output
+
+def rank_diagnoses_SFM(raw_output, registered_actions, debug_print):
+    def _fault_fn_from_obj(obj):
+        """Return a callable f(a). Accepts either a function or a string like '[0,0,2,3]'.
+        Falls back to identity if parsing fails."""
+        if callable(obj):
+            return obj
+        # try to parse a list/tuple mapping from a safe eval context
+        if isinstance(obj, str):
+            try:
+                mapping = eval(obj, {"__builtins__": {}})
+                if isinstance(mapping, (list, tuple)):
+                    def f(a, _m=mapping):
+                        ai = int(a)
+                        return int(_m[ai]) if 0 <= ai < len(_m) else ai
+                    return f
+            except Exception:
+                pass
+        # identity fallback
+        return lambda a: a
+
+    ranking_start_time = time.time()
+    G = raw_output.get('diagnoses', {}) or {}
+    diagnoses = []
+    diagnosis_actions = []
+    ranks = []
+
+    for key_j, triple in G.items():
+        # triple is [fault_obj, actions_j, state]
+        fault_obj = triple[0]
+        actions_j = triple[1]
+        f = _fault_fn_from_obj(fault_obj)
+
+        # count actual vs potential faults (your original logic)
+        num_actual_faults = 0
+        for i in range(len(actions_j)):
+            if actions_j[i] is not None:
+                if registered_actions[i] != actions_j[i]:
+                    num_actual_faults += 1
+
+        num_potential_faults = 0
+        for i in range(len(actions_j)):
+            if actions_j[i] is not None:
+                a = registered_actions[i]
+                fa = f(a)  # works for callable or parsed string mapping
+                if a != fa:
+                    num_potential_faults += 1
+
+        if debug_print:
+            print(f'num_actual_faults / num_potential_faults: {num_actual_faults} / {num_potential_faults}')
+
+        if num_potential_faults == 0:
+            rank = 1.0
+        else:
+            rank = num_actual_faults * 1.0 / num_potential_faults
+
+        k_j = key_j.split('_')[0]
+        if k_j not in diagnoses:
+            diagnoses.append(k_j)
+            diagnosis_actions.append(actions_j)
+            ranks.append(rank)
+
+    if diagnoses:
+        zipped_lists = zip(diagnoses, diagnosis_actions, ranks)
+        sorted_zipped_lists = sorted(zipped_lists, key=lambda x: x[-1], reverse=True)
+        diagnoses, diagnosis_actions, ranks = map(list, zip(*sorted_zipped_lists))
+    else:
+        diagnoses, diagnosis_actions, ranks = [], [], []
+
+    ranking_end_time = time.time()
+    ranking_runtime_sec = ranking_end_time - ranking_start_time
+    ranking_runtime_ms = ranking_runtime_sec * 1000
+
+    output = {
+        "diagnoses": diagnoses,
+        "init_rt_sec": raw_output.get("init_rt_sec", 0.0),
+        "init_rt_ms":  raw_output.get("init_rt_ms",  0.0),
+        "diag_rt_sec": raw_output.get("diag_rt_sec", 0.0),
+        "diag_rt_ms":  raw_output.get("diag_rt_ms",  0.0),
+        "totl_rt_sec": raw_output.get("totl_rt_sec", 0.0),
+        "totl_rt_ms":  raw_output.get("totl_rt_ms",  0.0),
+        "G_max_size":  raw_output.get('G_max_size', 0),
+        "diagnosis_actions": diagnosis_actions,
+        "ranks": ranks,
+        "rank_rt_sec": ranking_runtime_sec,
+        "rank_rt_ms": ranking_runtime_ms,
+        "cmpl_rt_sec": float(raw_output.get("totl_rt_sec", 0.0)) + ranking_runtime_sec,
+        "cmpl_rt_ms":  float(raw_output.get("totl_rt_ms",  0.0)) + ranking_runtime_ms,
+    }
+    return output

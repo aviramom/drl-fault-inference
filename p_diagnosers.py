@@ -1863,7 +1863,7 @@ def close_enough(u, v, atol=1e-2, rtol=1e-2):
 # --- You must implement/provide this loader. It should return:
 # models_by_fault: dict[fault_mode_str][action] -> model (with .predict(state)->next_state)
 def get_models_by_fault(domain_name, ml_model_name):
-    return pm.load_models_by_fault(domain_name, ml_model_name)
+    return pm.load_models_by_fault(domain_name, ml_model_name,save_dir="trained_non_linear_3-degree_models")
 
 
 

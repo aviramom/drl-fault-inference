@@ -1,18 +1,18 @@
 {
   "domain_name": "FrozenLake_v1",
   "ml_model_name": "PPO",
-  "saved_at": "2025-08-23T12:53:15.675733Z",
+  "saved_at": "2025-09-15T07:44:15.192742Z",
   "fault_modes": [
-    "[0,0,2,3]",
-    "[2,1,2,3]",
-    "[0,1,2,0]",
+    "[0,0,0,0]",
     "[0,0,0,3]",
     "[0,0,2,0]",
+    "[0,0,2,3]",
     "[0,1,0,0]",
-    "[0,0,0,0]",
+    "[0,1,2,0]",
     "[0,3,2,1]",
+    "[1,0,2,3]",
     "[2,1,0,3]",
-    "[1,0,2,3]"
+    "[2,1,2,3]"
   ],
   "schema": "models_by_fault[fault_mode_str][action] -> sklearn model wrapped by FaultyTransitionModel"
 }

@@ -17,6 +17,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import train_test_split
 from FaultyEnvironment import FaultyEnvironment
 from persist_models import *
+from p_diagnosers import *
 
 
 if __name__ == '__main__':
@@ -55,6 +56,7 @@ if __name__ == '__main__':
                                              render_mode,
                                              max_exec_len,
                                              model_type)
+        
 
         for fm_dict in models.values():
             for model in fm_dict.values():
