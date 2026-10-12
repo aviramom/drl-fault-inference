@@ -30,3 +30,10 @@ venv/
 Thumbs.db
  
 ~$*.xlsx
+
+# Office lock files (any extension)
+~$*
+
+# Local-only assets (main.py plays this when a run finishes; not part of the project)
+alarm.mp3
+*.mp3

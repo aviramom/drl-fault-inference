@@ -1,0 +1,9 @@
+gym
+gymnasium
+stable-baselines3
+numpy
+scikit-learn
+joblib
+matplotlib
+xlsxwriter
+pygame
